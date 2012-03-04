@@ -4,7 +4,7 @@
 Require Export Omega.
 Require Export Coq.Init.Wf.
 Require Export Coq.Arith.Lt.
-
+Require Export Coq.Bool.Bool.
 
 (* First Definition *)
 Definition even n:={a:nat&n=2*a}.
@@ -66,7 +66,29 @@ Goal evenp 256.
 Qed.
 
 
-(* Third Definition *)
+(* 
+-- Third Definition 
+iseven/isoddの型をnat->boolにしておけば、
+forall n,(iseven n=true) \/ (iseven n=false)
+を一々証明しなくくていい
+
+iseven/isoddの型をnat->Propやnat->Typeにすると、場合によっては
+forall n,(iseven n=True) + (iseven n=False)
+等を証明する必要があって。手間が一つ増える。その代わり、
+forall n, iseven n=true -> even n
+ではなく、
+forall n ,iseven n-> even n
+という書き方が許される
+
+e.g.
+Fixpoint iseven (n:nat) : Type :=
+  match n with
+    | O =>  (True:Tyep)
+    | S O => (False:Type)
+    | S (S n') => iseven n'
+end.
+*)
+
 Fixpoint iseven (n:nat) : bool :=
   match n with
     | O => true
@@ -81,13 +103,6 @@ Fixpoint isodd (n:nat) : bool :=
     | S (S n') => isodd n'
 end.
 
-Goal forall n,iseven n=iseven(n+2).
-  induction n.
-  intros;simpl;auto.
-  assert(H':S n+2=S (S (S n))) by omega.
-  rewrite H';simpl;auto.
-Qed.
-
 Goal forall n,even n->iseven n=true.
   intros n H.
   destruct H as [a H].
@@ -99,23 +114,52 @@ Goal forall n,even n->iseven n=true.
 Qed.
 
 
-(* TODO:prove even_ind_step *)
-Axiom even_ind_step: forall n:nat,(forall m:nat,m<n->iseven m=true->even m)->iseven n=true->even n.
 
-Goal forall n,iseven n=true->even n.
-  exact (well_founded_induction_type lt_wf (fun (n:nat)=>iseven n=true->even n) even_ind_step ).
+(* lt_wfと同じ。只の練習 *)
+Goal well_founded lt.
+  intro n.
+  induction n as [|n IHn].
+  constructor;intros;assert(XX:False) by omega;contradiction.
+  constructor;intros m H.
+  destruct (lt_eq_lt_dec n m) as [C1|C3].
+  destruct C1 as [C1|C2].
+  assert(XX:False) by omega;contradiction.
+  rewrite <- C2;exact IHn.
+  induction IHn as [n H1];exact (H1 m C3).
 Qed.
 
+
+Lemma iseven_is_valid: forall n,iseven n=true->even n.
+  refine (well_founded_induction_type lt_wf (fun (n:nat)=>iseven n=true->even n) _).
+  intros n H P.
+  induction n as [|n _].
+  exists 0;auto.
+  remember (iseven n) as even_n.
+  destruct even_n.
+  assert(H':forall x,iseven (S x)=negb (iseven x)).
+    induction x as [|x IHx].
+    auto.
+    rewrite IHx;rewrite negb_involutive;simpl;auto.
+  rewrite (H' n) in P.
+  rewrite (@eq_sym bool true (iseven n) Heqeven_n) in P.
+  contradiction diff_true_false.
+  simpl in P.
+  exact (@eq_sym bool false true P).
+  induction n as [|n].
+  discriminate.
+  destruct (H n).
+  omega.
+  simpl in P;auto.
+  subst;exists (x+1);omega.
+Qed.
 
 Goal iseven 128=true.
   simpl;constructor.
 Qed.
 
 
-
 (* おまけ *)
-Inductive _empty :=.
-Definition empty:Type := _empty.
+Definition empty:Type := False.
 
 Goal (unit:Type)<>empty.
   intro H.
@@ -124,8 +168,8 @@ Goal (unit:Type)<>empty.
     induction P.
     tauto.
   assert(H':=lift unit empty H).
-  assert(g:empty->False) by (intro p;induction p).
   tauto.
 Qed.
+
 
 
