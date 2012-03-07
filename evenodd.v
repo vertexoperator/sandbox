@@ -2,6 +2,7 @@
 (* どーでもいい *)
 
 Require Export Omega.
+Require Export NPeano.
 Require Export Coq.Init.Wf.
 Require Export Coq.Arith.Lt.
 Require Export Coq.Bool.Bool.
@@ -66,27 +67,93 @@ Goal evenp 256.
 Qed.
 
 
-(* 
--- Third Definition 
-iseven/isoddの型をnat->boolにしておけば、
-forall n,(iseven n=true) \/ (iseven n=false)
-を一々証明しなくくていい
+(*
+-- Third definition
+-- 色々めんどい
+-- mod_lt/mod_add/mod_plusは標準ライブラリにありそうなもんだが
+*)
 
-iseven/isoddの型をnat->Propやnat->Typeにすると、場合によっては
-forall n,(iseven n=True) + (iseven n=False)
-等を証明する必要があって。手間が一つ増える。その代わり、
-forall n, iseven n=true -> even n
-ではなく、
-forall n ,iseven n-> even n
-という書き方が許される
 
-e.g.
-Fixpoint iseven (n:nat) : Type :=
-  match n with
-    | O =>  (True:Tyep)
-    | S O => (False:Type)
-    | S (S n') => iseven n'
+(*
+Fixpoint mod2 n :=
+  match n with 
+    | S (S n') => mod2 n'
+    | _ => n
 end.
+*)
+
+Definition mod2 n := n mod 2.
+
+(*　面倒なので略 *)
+Lemma mod_lt : forall n m,0 < m -> n mod m < m.
+Admitted.
+
+Lemma mod_plus : forall n n' m, 0 < m -> (n+n') mod m = ((n mod m) + (n' mod m)) mod m.
+Admitted.
+
+Lemma mod_add : forall a b c, 0 < c -> (a + b * c) mod c = a mod c.
+Admitted.
+
+
+Goal forall n,even n->mod2 n=0.
+  unfold mod2.
+  intros n H.
+  destruct H as [a H].
+  subst.
+  induction a as [ | a IH].
+  simpl;auto.
+  assert(H':2* S a=2*a+1*2) by omega.
+  assert(O_lt_2 : 0< 2) by omega.
+  assert(H'':=mod_add (2*a) 1 2 O_lt_2).
+  congruence.
+Qed.
+
+
+Lemma check_even_by_mod2 : forall n,mod2 n=0->even n.
+  refine (well_founded_induction_type lt_wf (fun (n:nat)=>mod2 n=0->even n) _).
+  unfold mod2.
+  intros n H P.
+  induction n as [|n _].
+  exists 0;auto.
+  (* omegaバグってる? *)
+  assert(H':n mod 2=1).
+    assert(H1:=mod_plus n 1 2).
+    assert(H2:=mod_lt n 2).
+    assert(H3:S n=n+1) by omega.
+    rewrite H3 in P.
+    rewrite P in H1.
+    assert(H4:1 mod 2=1) by (simpl;auto).
+    rewrite H4 in H1.
+    assert(H6:0<2) by omega.
+    assert(H7:=H2 H6).
+    assert(H8:=H1 H6).
+    assert(H9: n mod 2<>0).
+      intro H9.
+      rewrite H9 in H8.
+      simpl in H8.
+      omega.
+    omega.
+  induction n as [|n].
+  discriminate.
+  destruct (H n).
+  omega.
+  assert(O_lt_2:0<2) by omega.
+  assert(H'':=mod_add n 1 2 O_lt_2).
+  assert(H''':S (S n)=n+1*2) by omega.
+  congruence.
+  subst;exists (x+1);omega.
+Qed.
+
+
+
+
+(* 
+-- Fourth Definition 
+-- "n mod 2=0->even n"の証明は、Z/2Zが環になることとか
+forall n,n mod 2 = 0 \/ n mod 2=1
+の証明が意外と大変
+
+以下のように、isevenを定義しておくと、証明が簡略化される
 *)
 
 Fixpoint iseven (n:nat) : bool :=
@@ -111,21 +178,6 @@ Goal forall n,even n->iseven n=true.
   simpl;constructor.
   assert(H':2*(S a)=S (S (2*a))) by omega.
   rewrite H';simpl;auto.
-Qed.
-
-
-
-(* lt_wfと同じ。只の練習 *)
-Goal well_founded lt.
-  intro n.
-  induction n as [|n IHn].
-  constructor;intros;assert(XX:False) by omega;contradiction.
-  constructor;intros m H.
-  destruct (lt_eq_lt_dec n m) as [C1|C3].
-  destruct C1 as [C1|C2].
-  assert(XX:False) by omega;contradiction.
-  rewrite <- C2;exact IHn.
-  induction IHn as [n H1];exact (H1 m C3).
 Qed.
 
 
@@ -158,7 +210,23 @@ Goal iseven 128=true.
 Qed.
 
 
-(* おまけ *)
+(* おまけ1 *)
+(* lt_wfと同じ。只の練習 *)
+Goal well_founded lt.
+  intro n.
+  induction n as [ |n IHn].
+  constructor;intros m H.
+  assert(H':~(m<0)) by omega;tauto.
+  constructor;intros m H.
+  assert(P:(n=m) \/ (m<n)) by omega.
+  assert(P1:n=m -> Acc lt m) by congruence.
+  assert(P2:m<n->Acc lt m).
+    induction IHn as [n IHn];exact (IHn m).
+  tauto.
+Qed.
+
+
+(* おまけ2 *)
 Definition empty:Type := False.
 
 Goal (unit:Type)<>empty.
