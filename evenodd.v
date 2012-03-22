@@ -3,8 +3,7 @@
 
 Require Export Omega.
 Require Export NPeano.
-Require Export Coq.Init.Wf.
-Require Export Coq.Arith.Lt.
+Require Export Coq.Arith.Wf_nat.
 Require Export Coq.Bool.Bool.
 
 (* First Definition *)
@@ -76,9 +75,9 @@ Qed.
 
 (*
 Fixpoint mod2 n :=
-  match n with 
-    | S (S n') => mod2 n'
-    | _ => n
+match n with
+| S (S n') => mod2 n'
+| _ => n
 end.
 *)
 
@@ -147,8 +146,8 @@ Qed.
 
 
 
-(* 
--- Fourth Definition 
+(*
+-- Fourth Definition
 -- "n mod 2=0->even n"の証明は、Z/2Zが環になることとか
 forall n,n mod 2 = 0 \/ n mod 2=1
 の証明が意外と大変
@@ -193,10 +192,8 @@ Lemma iseven_is_valid: forall n,iseven n=true->even n.
     auto.
     rewrite IHx;rewrite negb_involutive;simpl;auto.
   rewrite (H' n) in P.
-  rewrite (@eq_sym bool true (iseven n) Heqeven_n) in P.
-  contradiction diff_true_false.
-  simpl in P.
-  exact (@eq_sym bool false true P).
+  rewrite  <- Heqeven_n in P.
+  simpl in P;symmetry in P;contradiction diff_true_false.
   induction n as [|n].
   discriminate.
   destruct (H n).
@@ -238,6 +235,5 @@ Goal (unit:Type)<>empty.
   assert(H':=lift unit empty H).
   tauto.
 Qed.
-
 
 
