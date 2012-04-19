@@ -1,7 +1,7 @@
 (* coq8.3 *)
 (* normalization by evalutionとproof by reflectionの練習 *)
 
-Record MonoidStructure (M:Type) := {
+Class MonoidStructure (M:Type) := {
   Mop : M -> M -> M;
   Mid : M;
   Mop_assoc : forall a b c:M , Mop a (Mop b c) = Mop (Mop a b) c;
@@ -83,13 +83,20 @@ Implicit Arguments op [M].
 Implicit Arguments monoid_reflect [M].
 Implicit Arguments eval [M].
 
+
+(* 
+   例:list_is_monoidをunfoldableにしておかないと、
+   evalの簡約ができなくなるので注意 
+*)
 Require Import List.
+Instance list_is_monoid {X} : MonoidStructure (list X) := 
+   Build_MonoidStructure _ _ _ (@app_assoc X) (@app_nil_l X) (@app_nil_r X).
+
 Goal forall X (x y z w :list X),(x++y)++(z++w)=((x++y)++z)++w.
    intros X x y z w.
    set (e1:=op (op (var x) (var y)) (op (var z) (var w))).
    set (e2:=op (op (op (var x) (var y)) (var z)) (var w)).
-   set (Lmth := Build_MonoidStructure _ _ _ (@app_assoc X) (@app_nil_l X) (@app_nil_r X)).
-   apply (monoid_reflect Lmth e1 e2);compute;reflexivity.
+   let p:=fresh in assert(p:=monoid_reflect _ e1 e2 eq_refl);simpl in p;auto.
 Qed.
 
 
