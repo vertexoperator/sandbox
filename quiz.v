@@ -14,6 +14,9 @@ Goal Hoge nat.
    firstorder.
 Qed.
 
+Goal Hoge nat.
+   intuition.
+Qed.
 
 (* ====================================================== *)
 Require Import List.
@@ -30,6 +33,10 @@ Instance list_is_monoid {X} : MonoidType (list X) :=
 
 Goal forall X, MonoidType (list X).
    firstorder.
+Qed.
+
+Goal forall X, MonoidType (list X).
+   intuition.
 Qed.
 
 (* ====================================================== *)
