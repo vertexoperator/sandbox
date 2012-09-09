@@ -274,3 +274,68 @@ Proof.
 Defined.
 
 
+(*===================== higher commutativity laws =====================*)
+Definition interchange_law {A} {x y z:A} {p q r:x==y} {s t u:y==z} (a:p==q) (b:q==r) (c:s==t) (d:t==u) : 
+  (a @ b) [@] (c @ d) == (a [@] c) @ (b [@] d).
+Proof.
+   induction a;induction b;induction c;induction d.
+   apply id_refl.
+Defined.
+
+
+Definition concat2_is_left_unital {A} {x y:A} {p q:x==y} (s:p==q) :
+  (id_refl (id_refl x)) [@] s == (id_left_unit p) @ s @ !(id_left_unit q).
+Proof.
+  induction s.
+  induction t.
+  apply id_refl.
+Defined.
+
+Definition concat2_is_right_unital {A}  {x y:A} {p q:x==y} (s:p==q) :
+  s [@] (id_refl (id_refl y)) == (id_right_unit p) @ s @ !(id_right_unit q).
+Proof.
+  induction s.
+  induction t.
+  apply id_refl.
+Defined.
+
+
+Definition concat2_is_left_unital_pt {A} {x:A} (s:(id_refl x)==(id_refl x)) : 
+   (id_refl (id_refl x)) [@] s == s :=
+      (concat2_is_left_unital s) @ 
+      (id_left_unit (s @ !(id_left_unit (id_refl x)))) @ 
+      (id_right_unit s).
+
+Definition concat2_is_right_unital_pt {A} {x:A} (s:(id_refl x)==(id_refl x)) : s[@] (id_refl (id_refl x)) == s.
+  assert(p1:=concat2_is_right_unital s).
+  assert(p2 := id_right_unit (id_right_unit (id_refl x) @ s)).
+  assert(p3 := id_left_unit s).
+  exact (p1 @ p2 @ p3).
+Defined.
+
+
+(*
+a @ b == (e [@] a) @ (b [@] e) == (e @ b) [@] (a @ e) == b [@] a == 
+(b @ e) [@] (e @ a) == (b [@] e) @ (e [@] a) == b@a
+*)
+
+Definition comm {A} {x:A} (a b:(id_refl x)==(id_refl x)): a @ b == b @ a.
+  set (e:=id_refl (id_refl x)).
+  assert(p1 := !(concat2_is_left_unital_pt a) [@] !(concat2_is_right_unital_pt b)).
+  assert(p2 := !(interchange_law e b a e)).
+  assert(p3 := (id_left_unit b) [[@]] (id_right_unit a)).
+  assert(p4 := !((id_right_unit b) [[@]] (id_left_unit a))).
+  assert(p5 := interchange_law b e e a).
+  assert(p6 := (concat2_is_right_unital_pt b) [@] (concat2_is_left_unital_pt a)).
+  exact (p1 @ p2 @ p3 @ p4 @ p5 @ p6).
+Defined.
+
+(* ===== Can I prove hexagon and Yang-Baxter equation? ======
+
+Definition hexagon1 {A} {x:A} (a b c:(id_refl x)==(id_refl x)) :
+  (assoc a b c) @ (comm a (b@c)) @ (assoc b c a) == 
+     ((comm a b) [@] (id_refl c)) @ (assoc b a c) @ ((id_refl b) [@] (comm a c)).
+*)
+
+
+
