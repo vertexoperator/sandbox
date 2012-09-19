@@ -300,21 +300,30 @@ Proof.
 Defined.
 
 
-Definition concat2_is_left_unital_pt {A} {x:A} (s:(id_refl x)==(id_refl x)) : 
-   (id_refl (id_refl x)) [@] s == s :=
-      (concat2_is_left_unital s) @ 
-      (id_left_unit (s @ !(id_left_unit (id_refl x)))) @ 
-      (id_right_unit s).
 
-Definition concat2_is_right_unital_pt {A} {x:A} (s:(id_refl x)==(id_refl x)) : s[@] (id_refl (id_refl x)) == s.
-  assert(p1:=concat2_is_right_unital s).
-  assert(p2 := id_right_unit (id_right_unit (id_refl x) @ s)).
-  assert(p3 := id_left_unit s).
-  exact (p1 @ p2 @ p3).
+Definition concat2_is_left_unital_pt {A} {x:A} (s:(id_refl x)==(id_refl x)) : 
+   (id_refl (id_refl x)) [@] s == s.
+Proof.
+   exact(
+      (concat2_is_left_unital s) @ 
+      (id_right_unit (_@s)) @ 
+      (id_left_unit s)
+   ).
+Defined.
+
+
+Definition concat2_is_right_unital_pt {A} {x:A} (s:(id_refl x)==(id_refl x)) : s [@] (id_refl (id_refl x)) == s.
+Proof.
+   exact(
+      (concat2_is_right_unital s) @ 
+      (id_right_unit (_@s)) @ 
+      (id_left_unit s)
+   ).
 Defined.
 
 
 (*
+Eckmann-Hilton argument:
 a @ b == (e [@] a) @ (b [@] e) == (e @ b) [@] (a @ e) == b [@] a == 
 (b @ e) [@] (e @ a) == (b [@] e) @ (e [@] a) == b@a
 *)
@@ -330,8 +339,141 @@ Definition comm {A} {x:A} (a b:(id_refl x)==(id_refl x)): a @ b == b @ a.
   exact (p1 @ p2 @ p3 @ p4 @ p5 @ p6).
 Defined.
 
-(* ===== Can I prove hexagon and Yang-Baxter equation? ======
 
+(*
+Definition comm_is_dinatural {A} {x:A} (a b a' b':(id_refl x)==(id_refl x)) (f:a==a') (g:b==b') :
+   (f [@] g)@(comm a' b')==(comm a b)@(g [@] f).
+
+
+Goal forall A (x:A) (a b c:id_refl x==id_refl x) ,
+   (id_refl a [@] comm b c) @ (comm a (c @ b)) == (comm a (b@c)) @ ((comm b c) [@] (id_refl a)).
+
+*)
+
+(* ===== Can I prove hexagon and Yang-Baxter equation? ======*)
+
+(*
+Reference:
+A.Joyal and R.Street,
+Braided tensor categories, Advances in Math. 102 (1993) 20-78
+http://maths.mq.edu.au/~street/JS1.pdf
+*)
+
+(* analogous to Hom(X,Y) -> Hom(Y^{*},X^{*}) *)
+Definition dualize {A} {x y:A} {p q:x==y} : (p==q) -> (!q==!p).
+Proof.
+  intro f.
+  exact(
+    (!id_right_unit (!q)) @ 
+    ((id_refl _) [@] (!id_right_inverse p)) @
+    ((id_refl _) [@] (f [@] id_refl _)) @ 
+    (!assoc (!q) (q) (!p)) @
+    ((id_left_inverse _) [@] (id_refl _)) @ 
+    (id_left_unit _)
+  ).
+Defined.
+
+Definition MF3 {A} {x y z:A} {p1 p2 p3 p4:x==y} {q1 q2 q3 q4:y==z} 
+   (a:p1==p2) (b:p2==p3) (c:p3==p4) (a':q1==q2) (b':q2==q3) (c':q3==q4):
+      (assoc (a[@]a') (b[@]b') (c[@]c')) @ 
+      ((id_refl (a[@]a')) [@] !(interchange_law b c b' c')) @
+      !(interchange_law a (b@c) a' (b'@c')) ==
+      (!(interchange_law a b a' b') [@] (id_refl (c[@]c'))) @
+      !(interchange_law (a@b) c (a'@b') c') @
+      ((assoc a b c) [[@]] (assoc a' b' c')).
+Proof.
+  induction a;induction b;induction c;induction a';induction b';induction c'.
+  apply id_refl.
+Defined.
+
+
+Definition id_left_unit_is_identity {A} {x y:A} (p:x==y):id_left_unit p==id_refl p.
+   induction p;apply id_refl.
+Defined.
+
+Definition PI_partL {A} {x y:A} {p q r:x==y} (a:p==q) (b:q==r) :
+   (id_left_unit p @ a @ !id_left_unit q) @ (id_left_unit q @ b @ !id_left_unit r)==
+     (id_left_unit p)@(a@b)@(!id_left_unit r).
+Proof.
+exact(
+  (
+     (
+        ((id_refl _) [@] (!dualize (id_left_unit_is_identity q))) @ 
+        (id_right_unit (_@a)) @
+        ((id_left_unit_is_identity p) [@] (id_refl _)) @ 
+        (id_left_unit a) 
+     ) [@]
+     (
+        ((id_refl _) [@] (!dualize (id_left_unit_is_identity r))) @ 
+        (id_right_unit (_@b)) @
+        ((id_left_unit_is_identity q) [@] (id_refl _)) @ 
+        (id_left_unit b) 
+     )
+  ) @
+  !(
+     ((id_refl _) [@] (!dualize (id_left_unit_is_identity r))) @ 
+     (id_right_unit (_@(a@b))) @
+     ((id_left_unit_is_identity p) [@] (id_refl _)) @ 
+     (id_left_unit (a@b)) 
+  )
+).
+Defined.
+
+
+Definition PI_left_proto {A} {x y:A} {p q r:x==y} (a:p==q) (b:q==r) :
+  concat2_is_left_unital (a@b) == 
+     (interchange_law _ _ a b) @
+     (concat2_is_left_unital a [@] concat2_is_left_unital b) @
+     (PI_partL a b).
+Proof.
+   induction a;induction b.
+   induction t.
+   apply id_refl.
+Defined.
+
+
+Definition PI_left {A} {x:A} (a b:(id_refl x)==(id_refl x)) :
+  concat2_is_left_unital_pt (a@b) ==
+    ( interchange_law (id_refl (id_refl x)) (id_refl (id_refl x)) a b ) @
+    ( concat2_is_left_unital_pt a [@] concat2_is_left_unital_pt b ).
+Proof.
+  set(q0 := id_right_unit (id_left_unit (id_refl x) @ (a @ b)) @ id_left_unit (a @ b)).
+  set(q1 := (id_right_unit (a@b) @ id_refl (a@b)) @ id_left_unit (a@b)).
+  set(qa := (id_right_unit a @ id_refl a) @ id_left_unit a).
+  set(qb := (id_right_unit b @ id_refl b) @ id_left_unit b).
+  exact(
+     (assoc (concat2_is_left_unital (a @ b)) _ _) @
+     ((PI_left_proto a b) [@] (id_refl q0)) @
+     (assoc _ (PI_partL a b) q0) @
+     ((id_refl _) [@] (assoc _ (!q1) q0)) @
+     ((id_refl _) [@] ( (id_refl _) [@] ( (id_refl (!q1)) [@] 
+               (!(id_right_unit (id_right_unit (a @ b))) [@] 
+                 (id_refl (id_left_unit (a @ b)))
+               )))
+     ) @
+     ((id_refl _) [@] ((id_refl _) [@](id_left_inverse q1))) @
+     ((id_refl _) [@] (id_right_unit _)) @
+     (assoc _ _ _) @
+     ((id_refl _) [@] (!interchange_law _ qa _ qb)) @
+     ((id_refl _) [@] 
+         ( 
+             (
+               (id_refl _) [@] 
+               ((id_right_unit (id_right_unit a)) [@] (id_refl (id_left_unit a)))
+             ) [[@]] 
+             ( 
+               (id_refl _) [@] 
+               ((id_right_unit (id_right_unit b)) [@] (id_refl (id_left_unit b)))
+             )
+         )
+     ) @
+     ((id_refl _) [@] ((!assoc _ _ _) [[@]] (!assoc _ _ _)))
+  ).
+Defined.
+
+
+
+(*
 Definition hexagon1 {A} {x:A} (a b c:(id_refl x)==(id_refl x)) :
   (assoc a b c) @ (comm a (b@c)) @ (assoc b c a) == 
      ((comm a b) [@] (id_refl c)) @ (assoc b a c) @ ((id_refl b) [@] (comm a c)).
