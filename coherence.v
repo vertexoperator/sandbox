@@ -775,7 +775,7 @@ Proof.
      (!assoc _ _ _)
    ).
 
-   (* TODO: M1を示す。(MF3 b e c e a e)を変形するだけ *)
+   (* FIXME: M1を示す。(MF3 b e c e a e)を変形するだけ *)
    assert(M1 : (interchange b e e a[@]id_refl (c[@]e))@
                (assoc (b[@]e) (e[@]a) (c[@]e))@
                (id_refl (b[@]e)[@]!interchange e c a e)==
@@ -783,7 +783,7 @@ Proof.
                (assoc b e c[[@]]assoc e a e)@
                (interchange b (e @ c) e (a @ e)) ).
 
-   (* TODO: M2を示す。(!dualize (MF3 e b c a e e))を変形 *)
+   (* FIXME: M2を示す。(!dualize (MF3 e b c a e e))を変形 *)
    assert(M2 : (!interchange e b a e[@]id_refl (c[@]e))@
                (!interchange (e @ b) c (a @ e) e)@
                (assoc e b c[[@]]assoc a e e) ==
@@ -798,7 +798,7 @@ Proof.
                (interchange (b @ c) e (e @ e) a) @
                (interchange b c e e[@]id_refl (e[@]a)) ).
      exact (MF3 b c e e e a).
-   (* TODO: Goalを示す
+   (* FIXME: Goalを示す
       (1)T3をM1で変形
       (2)(1)の結果をM2とM3で変形
       (3)(2)の結果をL1とL2で変形
@@ -807,7 +807,7 @@ Proof.
 Admitted.
 
 
-(* TODO:hexagonRと同様にして示す *)
+(* FIXME:hexagonRと同様にして示す *)
 Definition hexagonL {A} {x:A} (a b c:(id_refl x)==(id_refl x)) :
   (!assoc a b c)@(comm (a@b) c)@(!assoc c a b)==
     ((id_refl a)[@](comm b c))@(!assoc a c b)@((comm a c)[@](id_refl b)).
@@ -816,7 +816,7 @@ Admitted.
 
 
 
-(* TODO:Yang-Baxter方程式を示す *)
+(* FIXME:Yang-Baxter方程式を示す *)
 Definition YBE {A} {x:A} (a b c:(id_refl x)==(id_refl x)) :
   ((comm a b)[@](id_refl c)) @ (assoc b a c) @ 
   ((id_refl b)[@](comm a c)) @ (!assoc b c a) @ 
