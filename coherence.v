@@ -304,7 +304,7 @@ Defined.
 
 
 (*===================== higher commutativity laws =====================*)
-Definition interchange_law {A} {x y z:A} {p q r:x==y} {s t u:y==z} (a:p==q) (b:q==r) (c:s==t) (d:t==u) : 
+Definition interchange {A} {x y z:A} {p q r:x==y} {s t u:y==z} (a:p==q) (b:q==r) (c:s==t) (d:t==u) : 
   (a @ b) [@] (c @ d) == (a [@] c) @ (b [@] d).
 Proof.
    induction a;induction b;induction c;induction d.
@@ -352,13 +352,13 @@ a @ b == (e [@] a) @ (b [@] e) == (e @ b) [@] (a @ e) == b [@] a ==
 
 Definition comm {A} {x:A} (a b:(id_refl x)==(id_refl x)): a @ b == b @ a.
   set (e:=id_refl (id_refl x)).
-  assert(p1 := !(concat2_is_left_unital_pt a) [@] !(concat2_is_right_unital_pt b)).
-  assert(p2 := !(interchange_law e b a e)).
-  assert(p3 := (id_left_unit b) [[@]] (id_right_unit a)).
-  assert(p4 := !((id_right_unit b) [[@]] (id_left_unit a))).
-  assert(p5 := interchange_law b e e a).
-  assert(p6 := (concat2_is_right_unital_pt b) [@] (concat2_is_left_unital_pt a)).
-  exact (p1 @ p2 @ p3 @ p4 @ p5 @ p6).
+  assert(p1 := ((concat2_is_left_unital_pt a) [@] (concat2_is_right_unital_pt b))).
+  assert(p2 := interchange e b a e).
+  assert(p3 := (!id_left_unit b) [[@]] (!id_right_unit a)).
+  assert(p4 := (!id_right_unit b) [[@]] (!id_left_unit a)).
+  assert(p5 := interchange b e e a).
+  assert(p6 := ((concat2_is_right_unital_pt b) [@] (concat2_is_left_unital_pt a))).
+  exact ( ((!p1) @ (!(p3 @ p2))) @ ((p4 @ p5) @ p6) ).
 Defined.
 
 
@@ -437,14 +437,15 @@ Definition inv3 {A} {x y:A} {p q:x==y} {s t:p==q} : s==t -> dualize t==dualize s
 Defined.
 
 
-Definition MF3 {A} {x y z:A} {p1 p2 p3 p4:x==y} {q1 q2 q3 q4:y==z} 
+Definition MF3 {A} {x y z:A} {p1 p2 p3 p4:x==y} {q1 q2 q3 q4:y==z}
    (a:p1==p2) (b:p2==p3) (c:p3==p4) (a':q1==q2) (b':q2==q3) (c':q3==q4):
-      (assoc (a[@]a') (b[@]b') (c[@]c')) @ 
-      ((id_refl (a[@]a')) [@] !(interchange_law b c b' c')) @
-      !(interchange_law a (b@c) a' (b'@c')) ==
-      (!(interchange_law a b a' b') [@] (id_refl (c[@]c'))) @
-      !(interchange_law (a@b) c (a'@b') c') @
-      ((assoc a b c) [[@]] (assoc a' b' c')).
+      (interchange a (b@c) a' (b'@c'))@
+      ((id_refl (a[@]a')) [@] (interchange b c b' c'))@
+      (!assoc (a[@]a') (b[@]b') (c[@]c'))
+      ==
+      (!((assoc a b c) [[@]] (assoc a' b' c')))@
+      (interchange (a@b) c (a'@b') c')@
+      ((interchange a b a' b') [@] (id_refl (c[@]c'))).
 Proof.
   induction a;induction b;induction c;induction a';induction b';induction c'.
   apply id_refl.
@@ -484,7 +485,7 @@ Defined.
 
 Definition PIL_proto {A} {x y:A} {p q r:x==y} (a:p==q) (b:q==r) :
   concat2_is_left_unital (a@b) == 
-     (interchange_law _ _ a b) @
+     (interchange _ _ a b) @
      (concat2_is_left_unital a [@] concat2_is_left_unital b) @
      (PI_partL a b).
 Proof.
@@ -496,7 +497,7 @@ Defined.
 
 Definition PIL {A} {x:A} (a b:(id_refl x)==(id_refl x)) :
   concat2_is_left_unital_pt (a@b) ==
-    ( interchange_law (id_refl (id_refl x)) (id_refl (id_refl x)) a b ) @
+    ( interchange (id_refl (id_refl x)) (id_refl (id_refl x)) a b ) @
     ( concat2_is_left_unital_pt a [@] concat2_is_left_unital_pt b ).
 Proof.
   set(Hab := id_right_unit (id_left_unit (id_refl x) @ (a @ b))).
@@ -512,7 +513,7 @@ Proof.
     ((id_refl _) [@] (id_right_unit _)) @
     (assoc _ _ _) @
     ((id_refl _) [@] (((id_refl _) [[@]] (id_refl _)) [@] ((id_right_unit Ha) [[@]] (id_right_unit Hb)))) @
-    ((id_refl _) [@] (!interchange_law _ Ha _ Hb))
+    ((id_refl _) [@] (!interchange _ Ha _ Hb))
   ).
 Defined.
 
@@ -544,7 +545,7 @@ Defined.
 
 Definition PIR_proto {A} {x y:A} {p q r:x==y} (a:p==q) (b:q==r) :
   concat2_is_right_unital (a@b) == 
-     (interchange_law a b _ _) @
+     (interchange a b _ _) @
      (concat2_is_right_unital a [@] concat2_is_right_unital b) @
      (PI_partR a b).
 Proof.
@@ -556,7 +557,7 @@ Defined.
 
 Definition PIR {A} {x:A} (a b:id_refl x==id_refl x) :
   concat2_is_right_unital_pt (a@b) ==
-    ( interchange_law a b (id_refl (id_refl x)) (id_refl (id_refl x)) ) @
+    ( interchange a b (id_refl (id_refl x)) (id_refl (id_refl x)) ) @
     ( concat2_is_right_unital_pt a [@] concat2_is_right_unital_pt b ).
 Proof.
   set(p:=id_refl x).
@@ -575,7 +576,7 @@ Proof.
         )@(id_right_unit _)@(id_right_unit _)
       )[@]
       (id_refl ((id_refl a) [@] (id_left_unit b)))
-    )@(!interchange_law _ _ _ _)@((id_right_unit _)[[@]](id_left_unit _))
+    )@(!interchange _ _ _ _)@((id_right_unit _)[[@]](id_left_unit _))
   ).
 
   set(redX:=
@@ -612,7 +613,7 @@ Proof.
     )@
     ( ((id_right_unit _)@(id_left_unit _)) [@] (id_refl _) )@
     ( (id_refl _)[@]redX )@
-    ( !interchange_law (id_refl (id_right_unit p)) (id_refl (id_right_unit p)) (!assoc va vb _) _)@
+    ( !interchange (id_refl (id_right_unit p)) (id_refl (id_right_unit p)) (!assoc va vb _) _)@
     ( 
       (id_left_unit (id_refl (id_right_unit p))) [[@]] 
       ( 
@@ -625,7 +626,7 @@ Proof.
         ((assoc _ _ _)[@](id_refl _)[@](id_refl _))@
         (( (inv_dist2 _ _)@((id_refl _)[[@]](inv_sq _)) )[@](id_left_inverse _)[@](id_refl _)[@](id_refl _))@
         ((id_right_unit _)[@](id_refl _)[@](id_refl _))@
-        ((!interchange_law (!id_refl va) (id_right_unit a) (id_right_unit vb) (id_left_unit b))[@](id_refl _))
+        ((!interchange (!id_refl va) (id_right_unit a) (id_right_unit vb) (id_left_unit b))[@](id_refl _))
       )
     )
   ).
@@ -634,7 +635,7 @@ Proof.
     (
       (
         redP@
-        (interchange_law 
+        (interchange 
            (id_refl (id_right_unit p)) 
            (id_refl (id_right_unit p)) 
            (!id_refl va @ id_right_unit a[@]id_right_unit vb @ id_left_unit b)
@@ -663,16 +664,247 @@ Proof.
           (((id_left_unit_is_identity _)[[@]](id_refl _))[@](id_refl _))@(id_left_unit _)
       ))
     ))@
-    (assoc _ _ _)@((id_refl _)[@](!interchange_law _ _ _ _))
+    (assoc _ _ _)@((id_refl _)[@](!interchange _ _ _ _))
   ).
 Defined.
 
 
-(*
-Definition hexagon1 {A} {x:A} (a b c:(id_refl x)==(id_refl x)) :
+
+Definition hexagonR {A} {x:A} (a b c:(id_refl x)==(id_refl x)) :
   (assoc a b c) @ (comm a (b@c)) @ (assoc b c a) == 
      ((comm a b) [@] (id_refl c)) @ (assoc b a c) @ ((id_refl b) [@] (comm a c)).
+Proof.
+  assert(H1:(id_refl (b@a)[@](id_refl c))==id_refl _) by (apply id_refl).
+  assert(H2:(id_refl b)[@](id_refl (c @ a)) == id_refl (b@(c@a))) by (apply id_refl).
+  set (e:=id_refl (id_refl x)).
+  set(LA:=concat2_is_left_unital_pt a).
+  set(RB:=concat2_is_right_unital_pt b).
+  set(RC:=concat2_is_right_unital_pt c).
+
+  set(R1:=
+      ((PIR b c)[[@]](id_refl LA))@
+      (interchange _ (RB[@]RC) (id_refl (e[@]a)) LA)
+  ).
+
+  set(L1:=
+        ( ((id_refl LA)[[@]](PIR b c))[@](id_refl (!assoc a b c)) )@
+        ( (interchange (id_refl (e[@]a)) LA _ (RB[@]RC))[@](id_refl (!assoc a b c)) )@
+        (assoc _ _ (!assoc a b c))@
+        ( (id_refl _)[@]
+          (
+              ((!id_left_inverse _)[@](id_refl (LA[@](RB[@]RC)))[@](id_refl _))@
+              ((assoc _ _ _)[@](id_refl _))@
+              ((id_refl (!assoc (e[@]a) (b[@]e) (c[@]e)))[@](!assoc_is_natural LA RB RC)[@](id_refl (!assoc a b c)))@
+              (assoc _ (_@_) _)@
+              ((id_refl _)[@](assoc _ _ _))@
+              ((id_refl _)[@]((id_refl _)[@](id_right_inverse _)))@
+              ((id_refl _)[@](id_right_unit _))
+           )
+        )@
+        (!assoc _ _ _)
+   ).
+
+   set(L2:=
+      ((id_refl (interchange e (b @ c) a (e @ e)))[@]L1)@
+      (!assoc _ (_@_) _)@((!assoc _ _ _)[@](id_refl (LA[@]RB[@]RC)))@
+      ((MF3 e b c a e e)[@](id_refl _))
+   ).
+
+  set(T1:=
+     (!id_right_unit _)@
+     ((id_refl _)[@](!H1))@
+     ((id_refl _)[@]((!id_left_unit _)[[@]](!id_left_inverse RC)))@
+     ((id_refl _)[@](interchange _ _ (!RC) RC))@
+     (!assoc ((comm a b)[@](id_refl c)) ((id_refl (b@a))[@](!RC)) ((id_refl (b@a)[@]RC)))@
+     (
+       (
+         (!interchange (comm a b) (id_refl _) (id_refl _) (!RC))@
+         ((id_right_unit (comm a b))[[@]](id_left_unit (!RC)))@
+         ((!id_left_unit (comm a b))[[@]](!id_right_unit (!RC)))@
+         (interchange (id_refl _) (comm a b) (!RC) (id_refl _))
+       )[@](id_refl _)
+     )@
+     ((id_refl _)[@](interchange _ _ (id_refl _) (id_refl _))[@](id_refl _))@
+     ((!assoc _ _ _)[@](id_refl _))@(assoc (_@_) _ _)@
+     ((!interchange _ _ _ _)[@](!interchange _ _ _ _))@
+     (((id_left_unit _)[[@]](id_refl _))[@]((id_right_unit _)[[@]](id_refl _)))@
+     ((interchange (!(LA[@]RB)) _ (!RC) (id_refl (c[@]e)))[@](interchange _ (RB[@]LA) (id_refl (c[@]e)) RC))@
+     (((!inv_dist2 (LA[@]RB) RC)[@](id_refl _))[@](id_refl _))@
+     (!assoc (_@_) _ _)@((assoc _ _ _)[@](id_refl _))
+   ).
+
+   set(T2:=
+     (!id_right_unit _)@
+     ((id_refl _)[@](!H2))@
+     ((id_refl _)[@]((!id_left_inverse RB)[[@]](!id_left_unit _)))@
+     ((id_refl _)[@](interchange (!RB) RB _ _))@
+     (!assoc ((id_refl b)[@](comm a c)) ((!RB)[@](id_refl (c@a))) (RB[@](id_refl (c@a))))@
+     (
+       (
+         (!interchange (id_refl b) (!RB) (comm a c) (id_refl _))@
+         ((id_left_unit (!RB))[[@]](id_right_unit _))@
+         ((!id_right_unit (!RB))[[@]](!id_left_unit _))@
+         (interchange _ _ _ _)
+       )[@](id_refl _)
+     )@
+     ((id_refl _)[@](interchange (id_refl (b[@]e)) (id_refl (b[@]e)) _ _)[@](id_refl _))@
+     ((!assoc _ _ _)[@](id_refl _))@
+     (assoc (_@_) _ _)@
+     ((!interchange (!RB) (id_refl (b[@]e)) (id_refl _) _)[@](!interchange (id_refl (b[@]e)) RB _ _))@
+     (((id_refl _)[[@]](id_left_unit _))[@]((id_refl _)[[@]](id_right_unit _)))@
+     ((interchange (!RB) (id_refl (b[@]e)) _ _)[@](interchange _ RB _ (RC[@]LA)))@
+     (((!inv_dist2 RB (LA[@]RC))[@](id_refl _))[@](id_refl _))@
+     (assoc _ _ (_@_))@((id_refl _)[@](!assoc _ _ _))
+   ).
+
+   set(T3:=
+     (T1[@](id_refl (assoc b a c))[@]T2)@
+     ((assoc (_@(_@_)) _ _)[@](id_refl _))@
+     (assoc _ _ _)@((id_refl (_@(_@_)))[@](!assoc (_@_) _ _))@
+     (
+       (id_refl _)[@](
+       (
+           ((assoc_is_natural RB LA RC)[@](id_refl (!(RB[@](LA[@]RC)))))@
+           (assoc _ _ _)@
+           ((id_refl _)[@](id_right_inverse _))@
+           (id_right_unit _)
+       )[@]
+       (id_refl _))
+     )@
+     ((id_refl _)[@](!assoc _ _ _))@
+     (!assoc _ _ _)
+   ).
+
+   (* TODO: M1を示す。(MF3 b e c e a e)を変形するだけ *)
+   assert(M1 : (interchange b e e a[@]id_refl (c[@]e))@
+               (assoc (b[@]e) (e[@]a) (c[@]e))@
+               (id_refl (b[@]e)[@]!interchange e c a e)==
+               (!interchange (b @ e) c (e @ a) e)@
+               (assoc b e c[[@]]assoc e a e)@
+               (interchange b (e @ c) e (a @ e)) ).
+
+   (* TODO: M2を示す。(!dualize (MF3 e b c a e e))を変形 *)
+   assert(M2 : (!interchange e b a e[@]id_refl (c[@]e))@
+               (!interchange (e @ b) c (a @ e) e)@
+               (assoc e b c[[@]]assoc a e e) ==
+               (assoc (e[@]a) (b[@]e) (c[@]e))@
+               (id_refl (e[@]a)[@]!interchange b c e e)@
+               (!interchange e (b @ c) a (e @ e)) ).
+
+   assert(M3 : (interchange b (c @ e) e (e @ a)@
+               (id_refl (b[@]e)[@]interchange c e e a))@
+               (!assoc (b[@]e) (c[@]e) (e[@]a)) ==
+               (!(assoc b c e[[@]]assoc e e a))@
+               (interchange (b @ c) e (e @ e) a) @
+               (interchange b c e e[@]id_refl (e[@]a)) ).
+     exact (MF3 b c e e e a).
+   (* TODO: Goalを示す
+      (1)T3をM1で変形
+      (2)(1)の結果をM2とM3で変形
+      (3)(2)の結果をL1とL2で変形
+      (49多分、あと何か
+   *)
+Admitted.
+
+
+(* TODO:hexagonRと同様にして示す *)
+Definition hexagonL {A} {x:A} (a b c:(id_refl x)==(id_refl x)) :
+  (!assoc a b c)@(comm (a@b) c)@(!assoc c a b)==
+    ((id_refl a)[@](comm b c))@(!assoc a c b)@((comm a c)[@](id_refl b)).
+Proof.
+Admitted.
+
+
+
+(* TODO:Yang-Baxter方程式を示す *)
+Definition YBE {A} {x:A} (a b c:(id_refl x)==(id_refl x)) :
+  ((comm a b)[@](id_refl c)) @ (assoc b a c) @ 
+  ((id_refl b)[@](comm a c)) @ (!assoc b c a) @ 
+  ((comm b c)[@](id_refl a)) @ (assoc c b a) ==
+  (assoc a b c) @ ((id_refl a)[@](comm b c)) @ 
+  (!assoc a c b) @ ((comm a c)[@](id_refl b)) @ 
+  (assoc c a b) @ ((id_refl c)[@](comm a b)).
+Proof.
+  (* N : comm a (b @ c) @ (comm b c[@]id_refl a) == (id_refl a[@]comm b c) @ comm a (c @ b) *)
+  set(N := !comm_is_dinatural (id_refl a) (comm b c)).
+
+  (* hexagonR a b c *)
+  assert(BX : (comm a b[@]id_refl c) @ (assoc b a c) @ 
+             ((id_refl b)[@](comm a c)) @ (!assoc b c a) ==
+             (assoc a b c) @ (comm a (b @ c)) ).
+
+  (* hexagonR a c b *)
+  assert(BY : (comm a (c @ b))@assoc c b a ==
+              (!assoc a c b) @ ((comm a c)[@](id_refl b)) @ 
+              (assoc c a b) @ ((id_refl c)[@](comm a b)) ).
+
+  (*
+     set(P:=
+       (BX [@] (id_refl (comm b c[@]id_refl a))@
+       (assoc _ _ _)@
+       ((id_refl (assoc a b c))[@]N)
+     ).
+     set(Q:=
+       (P [@] (id_refl (assoc c b a)))@
+       (....)@
+       (.... [@] BY)
+     ).
+     etc.
+   *)
+Admitted.
+
+
+(*
+MEMO:YBEがZamolodchikov tetrahedron equationを満たすこと
+
+((YBE a b c)[@](id_refl d))[[@]]???? : (1)==(2)
+???[[@]]???[[@]]((id_refl c)[@](YBE a b d))[[@]]??? : (2)==(3)
+
+(4)==(4.5) from  ((id_refl a)[@](YBE b c d))
+(4.5)==(5) from naturality of comm
+
+(1)(ABC)D->(BAC)D->(BCA)D->(CBA)D->CBDA->CDBA->DCBA
+(2)(ABC)D->(ACB)D->(CAB)D->(CBA)D->CBDA->CDBA->DCBA
+(3)(ABC)D->(ACB)D->CABD->CADB->CDAB->CDBA->DCBA
+(3.5)
+(4)ABCD->ACBD->ACDB->ADCB->DACB->DCAB->DCBA
+(4.5)ABCD->ABDC->ADBC->ADCB->DACB->DCAB->DCBA
+(5)ABCD->ABDC->ADBC->DABC->DACB->DCAB->DCBA
+
+(1')=(1)
+(2')ABCD->BACD->BCAD->BCDA->BDCA->DBCA->DCBA
+(3')ABCD->BACD->BADC->BDAC->DBAC->DBCA->DCBA
+(4')ABCD->ABDC->ADBC->DABC->DBAC->DBCA->DCBA
+(5')=(5)
+
+
+References:
+[1]Kapranov and Voevodsky ,2-categories and Zamolodchikov tetrahedra equations, in Algebraic Groups and Their Generalizations
+
 *)
+
+
+
+(* 
+ (pivotal) monoidal categoryに於けるcategorical trace
+ Q1: left traceとright traceがあるけど、一致する？
+ 
+ 多分、Whitehead bracketは、
+   WB x y := trace ((comm x y)@(comm y x))
+ Whitehead half-square mapは、
+   WM x := trace (comm x x)
+ 
+ Q2: (WB x y)@(WM x)@(WM y) == WM (x@y)が言える?
+
+ Q3: n-基本亜群(n>2)に於ける標準的なWhitehead積$\pi_2 \times \pi_2 \to \pi_3$とこの定義が一致することの証明
+
+Reference: Fusion categories and homotopy theory(arXiv:0909.3140) Chapter7.3
+
+*)
+
+Definition trace {A} {x:A} {a:id_refl x==id_refl x} (f:a==a) :=
+  (!id_right_inverse a) @ (f [@] (id_refl (!a))) @ 
+  ((!inv_sq a)[@](id_refl (!a))) @ (id_left_inverse (!a)).
 
 
 
