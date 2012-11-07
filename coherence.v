@@ -668,7 +668,42 @@ Proof.
   ).
 Defined.
 
+Definition assoc_rr_inv {A} {x y z:A} (p:x==y) (q:y==z) : (p @ q) @ !q == p.
+Proof.
+  exact (((assoc p q (!q))@(concat2 (id_refl p) (id_right_inverse q)))@(id_right_unit p)).
+Defined.
 
+Definition assoc_rl_inv {A} {x y z:A} (p:x==y) (q:z==y) : (p @ !q) @ q == p.
+Proof.
+  exact ((concat2 (id_refl (p @ !q)) (!inv_sq q))@(assoc_rr_inv p (!q))).
+Defined.
+
+Definition assoc_ll_inv {A} {x y z:A} (p:x==y) (q:y==z) : !p @ (p @ q) == q.
+Proof.
+  exact (((!assoc (!p) p q)@(concat2 (id_left_inverse p) (id_refl _)))@(id_left_unit q)).
+Defined.
+
+Definition assoc_lr_inv {A} {x y z:A} (p:y==x) (q:y==z) : p @ (!p @ q) == q.
+Proof.
+  exact ((concat2 (!inv_sq p) (id_refl (!p @ q)))@(assoc_ll_inv (!p) q)).
+Defined.
+
+Definition inv_idrefl {A} (x : A) : !(id_refl x) == id_refl x.
+Proof.
+  apply id_refl.
+Defined.
+
+Definition inv_idl_dist2 {A} {x y z:A} (p:x == y) {q r:y == z} (X:q==r) : !((id_refl p)[@]X) ==
+  (id_refl p[@]!X).
+Proof.
+  exact ((inv_dist2 (id_refl p) X)@((inv_idrefl p) [[@]] (id_refl (!X)))).
+Defined.
+
+Definition inv_idr_dist2 {A} {x y z:A} {p q:x == y} (r:y == z) (X:p==q) : !(X[@](id_refl r)) == (!X
+  [@] id_refl r).
+Proof.
+  exact ((inv_dist2 X (id_refl r))@(id_refl (!X) [[@]] inv_idrefl r)).
+Defined.
 
 Definition hexagonR {A} {x:A} (a b c:(id_refl x)==(id_refl x)) :
   (assoc a b c) @ (comm a (b@c)) @ (assoc b c a) == 
@@ -783,6 +818,37 @@ Proof.
                (assoc b e c[[@]]assoc e a e)@
                (interchange b (e @ c) e (a @ e)) ).
 
+   exact ((!(((((id_refl ((!(interchange (b @ e) c (e @ a) e)) @ (assoc b e c[[@]]assoc e a e)))
+                  [@]
+                  ((((!assoc_rl_inv (interchange b (e @ c) e (a @ e)) (id_refl (b[@]e)[@]!interchange e c a e))
+                       @
+                       (concat2
+                          ((concat2
+                              (id_refl (interchange b (e @ c) e (a @ e)))
+                              ((dualize ((inv_idrefl (b[@]e))[[@]](id_refl (!interchange e c a e))))
+                                 @
+                                 ((dualize (inv_dist2 (id_refl (b[@]e)) (interchange e c a e)))
+                                    @
+                                    (inv_sq (id_refl (b[@]e)[@]interchange e c a e)))))
+                             @
+                             ((!assoc_rl_inv ((interchange b (e @ c) e (a @ e)) @ (id_refl (b[@]e)[@]interchange e c a e)) (assoc (b[@]e) (e[@]a) (c[@]e)))
+                                @
+                                (concat2
+                                   (MF3 b e c e a e)
+                                   (id_refl (assoc (b[@]e) (e[@]a) (c[@]e))))))
+                          (id_refl  (id_refl (b[@]e)[@]!interchange e c a e))))
+                      @
+                      (assoc ((!(assoc b e c[[@]]assoc e a e) @ (interchange (b @ e) c (e @ a) e)) @ (interchange b e e a[@]id_refl (c[@]e))) (assoc (b[@]e) (e[@]a) (c[@]e))  (id_refl (b[@]e)[@]!interchange e c a e)))
+                     @
+                     (assoc (!(assoc b e c[[@]]assoc e a e) @ (interchange (b @ e) c (e @ a) e)) (interchange b e e a[@]id_refl (c[@]e)) ((assoc (b[@]e) (e[@]a) (c[@]e)) @  (id_refl (b[@]e)[@]!interchange e c a e)))))
+                 @
+                 ((!((inv_dist (!(assoc b e c[[@]]assoc e a e)) (interchange (b @ e) c (e @ a) e))@((id_refl (!(interchange (b @ e) c (e @ a) e))) [@] (inv_sq (assoc b e c[[@]]assoc e a e)))))
+                    [@] (id_refl ((!(assoc b e c[[@]]assoc e a e) @ (interchange (b @ e) c (e @ a) e)) @ ((interchange b e e a[@]id_refl (c[@]e)) @ ((assoc (b[@]e) (e[@]a) (c[@]e)) @  (id_refl (b[@]e)[@]!interchange e c a e)))))))
+                @
+                (assoc_ll_inv (!(assoc b e c[[@]]assoc e a e) @ (interchange (b @ e) c (e @ a) e)) ((interchange b e e a[@]id_refl (c[@]e)) @ ((assoc (b[@]e) (e[@]a) (c[@]e)) @  (id_refl (b[@]e)[@]!interchange e c a e)))))
+               @
+               (!assoc (interchange b e e a[@]id_refl (c[@]e)) (assoc (b[@]e) (e[@]a) (c[@]e))  (id_refl (b[@]e)[@]!interchange e c a e))))).
+
    (* FIXME: M2を示す。(!dualize (MF3 e b c a e e))を変形 *)
    assert(M2 : (!interchange e b a e[@]id_refl (c[@]e))@
                (!interchange (e @ b) c (a @ e) e)@
@@ -790,6 +856,27 @@ Proof.
                (assoc (e[@]a) (b[@]e) (c[@]e))@
                (id_refl (e[@]a)[@]!interchange b c e e)@
                (!interchange e (b @ c) a (e @ e)) ).
+   
+   exact(
+       ((id_refl ((!interchange e b a e[@]id_refl (c[@]e)) @ (!interchange (e @ b) c (a @ e) e)))
+          [@] (!inv_sq (assoc e b c[[@]]assoc a e e)))
+         @
+         (assoc (!interchange e b a e[@]id_refl (c[@]e)) (!(interchange (e @ b) c (a @ e) e)) (!!(assoc e b c[[@]]assoc a e e)))
+         @
+         ((!inv_idr_dist2 (c[@]e) (interchange e b a e))[@](!inv_dist (!(assoc e b c[[@]]assoc a e e)) (interchange (e @ b) c (a @ e) e)))
+         @
+         (!inv_dist  ((!(assoc e b c[[@]]assoc a e e)) @ (interchange (e @ b) c (a @ e) e)) (interchange e b a e[@]id_refl (c[@]e)))
+         @
+         (dualize (MF3 e b c a e e))
+         @
+         (inv_dist ((interchange e (b @ c) a (e @ e)) @ (id_refl (e[@]a)[@]interchange b c e e)) (!(assoc (e[@]a) (b[@]e) (c[@]e))))
+         @
+         ((inv_sq (assoc (e[@]a) (b[@]e) (c[@]e)))[@](inv_dist (interchange e (b @ c) a (e @ e)) (id_refl (e[@]a)[@]interchange b c e e)))
+         @
+         (id_refl (assoc (e[@]a) (b[@]e) (c[@]e)) [@] ((inv_idl_dist2 (e[@]a) (interchange b c e e)) [@] (id_refl (!(interchange e (b @ c) a (e @ e))))))
+         @
+         (!assoc (assoc (e[@]a) (b[@]e) (c[@]e)) (id_refl (e[@]a)[@]!interchange b c e e) (!(interchange e (b @ c) a (e @ e))))).
+
 
    assert(M3 : (interchange b (c @ e) e (e @ a)@
                (id_refl (b[@]e)[@]interchange c e e a))@
