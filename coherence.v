@@ -810,7 +810,7 @@ Proof.
      (!assoc _ _ _)
    ).
 
-   (* FIXME: M1を示す。(MF3 b e c e a e)を変形するだけ *)
+   (* Note: M1は(MF3 b e c e a e)を変形するだけ *)
    assert(M1 : (interchange b e e a[@]id_refl (c[@]e))@
                (assoc (b[@]e) (e[@]a) (c[@]e))@
                (id_refl (b[@]e)[@]!interchange e c a e)==
@@ -849,7 +849,8 @@ Proof.
                @
                (!assoc (interchange b e e a[@]id_refl (c[@]e)) (assoc (b[@]e) (e[@]a) (c[@]e))  (id_refl (b[@]e)[@]!interchange e c a e))))).
 
-   (* FIXME: M2を示す。(!dualize (MF3 e b c a e e))を変形 *)
+
+   (* Note: M2は(!dualize (MF3 e b c a e e))を変形 *)
    assert(M2 : (!interchange e b a e[@]id_refl (c[@]e))@
                (!interchange (e @ b) c (a @ e) e)@
                (assoc e b c[[@]]assoc a e e) ==
@@ -903,7 +904,7 @@ Admitted.
 
 
 
-(* FIXME:Yang-Baxter方程式を示す *)
+(* Yang-Baxter equation *)
 Definition YBE {A} {x:A} (a b c:(id_refl x)==(id_refl x)) :
   ((comm a b)[@](id_refl c)) @ (assoc b a c) @ 
   ((id_refl b)[@](comm a c)) @ (!assoc b c a) @ 
@@ -915,30 +916,28 @@ Proof.
   (* N : comm a (b @ c) @ (comm b c[@]id_refl a) == (id_refl a[@]comm b c) @ comm a (c @ b) *)
   set(N := !comm_is_dinatural (id_refl a) (comm b c)).
 
-  (* hexagonR a b c *)
-  assert(BX : (comm a b[@]id_refl c) @ (assoc b a c) @ 
-             ((id_refl b)[@](comm a c)) @ (!assoc b c a) ==
-             (assoc a b c) @ (comm a (b @ c)) ).
+  set(BX := !((hexagonR a b c)[@](id_refl (!assoc b c a)))@(assoc_rr_inv _ (assoc b c a)) ).
 
-  (* hexagonR a c b *)
-  assert(BY : (comm a (c @ b))@assoc c b a ==
-              (!assoc a c b) @ ((comm a c)[@](id_refl b)) @ 
-              (assoc c a b) @ ((id_refl c)[@](comm a b)) ).
+  set(BY :=  (!assoc_ll_inv (assoc a c b) _)@
+             ((id_refl (!assoc a c b))[@]((!assoc _ _ _)@(hexagonR a c b)))@
+             (!assoc _ _ _)@((!assoc _ _ _)[@](id_refl _)) ).
 
-  (*
-     set(P:=
-       (BX [@] (id_refl (comm b c[@]id_refl a))@
-       (assoc _ _ _)@
-       ((id_refl (assoc a b c))[@]N)
+  set(P := (BX [@] (id_refl (comm b c[@]id_refl a)))@
+           (assoc _ _ _)@
+           ((id_refl (assoc a b c))[@]N)
      ).
-     set(Q:=
-       (P [@] (id_refl (assoc c b a)))@
-       (....)@
-       (.... [@] BY)
-     ).
-     etc.
-   *)
-Admitted.
+
+  exact (
+    (P [@] (id_refl (assoc c b a)))@
+    ( (!assoc _ _ _)[@](id_refl _) )@(assoc _ _ _)@
+    ( (id_refl _)[@]BY)@
+    (!assoc _ _ _)@
+    ((!assoc _ _ _)[@](id_refl _))@
+    ((!assoc _ _ _)[@](id_refl _)[@](id_refl _))
+  ).
+
+Defined.
+
 
 
 (*
