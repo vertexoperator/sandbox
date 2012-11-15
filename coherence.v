@@ -885,6 +885,150 @@ Proof.
                (interchange (b @ c) e (e @ e) a) @
                (interchange b c e e[@]id_refl (e[@]a)) ).
      exact (MF3 b c e e e a).
+
+
+   (* FIXME: (1)T3をM1で変形 *)
+     assert (M4 : ((comm a b[@]id_refl c) @ assoc b a c) @ (id_refl b[@]comm a c) ==
+                  !(LA[@]RB[@]RC)
+                   @
+                   (!((!id_left_unit b[[@]]!id_right_unit a) @ (interchange e b a e))[@]id_refl (c[@]e))
+                   @
+                   ((!id_right_unit b[[@]]!id_left_unit a) [@]id_refl (c[@]e))
+                   @
+                   (!(interchange (b @ e) c (e @ a) e)) 
+                   @
+                   ((assoc b e c)[[@]](assoc e a e))
+                   @
+                   (interchange b (e @ c) e (a @ e))
+                   @
+                   (id_refl (b[@]e)[@](!(!id_left_unit c[[@]]!id_right_unit a)))
+                   @
+                   (id_refl (b[@]e)[@] (!id_right_unit c[[@]]!id_left_unit a) @ (interchange c e e a))
+                   @
+                   (RB[@](RC[@]LA))).
+
+     exact(T3
+             @ ((assoc
+                   (!(LA[@]RB[@]RC))
+                   ((!((!id_left_unit b[[@]]!id_right_unit a) @ (interchange e b a e))[@]id_refl (c[@]e)) @ ((!id_right_unit b[[@]]!id_left_unit a) @ (interchange b e e a)[@](id_refl (c[@]e))))
+                   ((assoc (b[@]e) (e[@]a) (c[@]e)) @ (((id_refl (b[@]e))[@]!((!id_left_unit c[[@]]!id_right_unit a) @ (interchange e c a e))) @ ((id_refl (b[@]e))[@] (!id_right_unit c[[@]]!id_left_unit a) @ (interchange c e e a)))))
+                  [@] (id_refl (RB[@](RC[@]LA))))
+             @ ((id_refl (!(LA[@]RB[@]RC)))
+                  [@]
+                  (assoc (!((!id_left_unit b[[@]]!id_right_unit a) @ (interchange e b a e))[@]id_refl (c[@]e)) ((!id_right_unit b[[@]]!id_left_unit a) @ (interchange b e e a)[@](id_refl (c[@]e))) ((assoc (b[@]e) (e[@]a) (c[@]e)) @ (((id_refl (b[@]e))[@]!((!id_left_unit c[[@]]!id_right_unit a) @ (interchange e c a e))) @ ((id_refl (b[@]e))[@] (!id_right_unit c[[@]]!id_left_unit a) @ (interchange c e e a)))))
+                  [@] (id_refl (RB[@](RC[@]LA))))
+             @
+             ((id_refl (!(LA[@]RB[@]RC)))
+                [@]
+                ((id_refl (!((!id_left_unit b[[@]]!id_right_unit a) @ (interchange e b a e))[@]id_refl (c[@]e)))
+                   [@]
+                   ((distr (c[@]e) (!id_right_unit b[[@]]!id_left_unit a) (interchange b e e a))
+                      [@]
+                      ((id_refl (assoc (b[@]e) (e[@]a) (c[@]e)))
+                         [@]
+                         ((((id_refl (id_refl (b[@]e))) [[@]] (inv_dist (!id_left_unit c[[@]]!id_right_unit a) (interchange e c a e))) @ (distl (b[@]e)(!(interchange e c a e)) (!(!id_left_unit c[[@]]!id_right_unit a))))
+                            [@]
+                            (id_refl ((id_refl (b[@]e)) [@] (!id_right_unit c[[@]]!id_left_unit a) @ (interchange c e e a)))))))
+                [@]
+                (id_refl (RB[@](RC[@]LA))))
+             @
+             (((id_refl (!(LA[@]RB[@]RC)))
+                 [@]
+                 ((id_refl (!((!id_left_unit b[[@]]!id_right_unit a) @ (interchange e b a e))[@]id_refl (c[@]e)))
+                    [@]
+                    (assoc
+                       ((!id_right_unit b[[@]]!id_left_unit a) [@] (id_refl (c[@]e))) ((interchange b e e a) [@] (id_refl (c[@]e))) 
+                       ((assoc (b[@]e) (e[@]a) (c[@]e)) @ (((((id_refl (b[@]e))[@]!(interchange e c a e)) @ ((id_refl (b[@]e)) [@] !(!id_left_unit c[[@]]!id_right_unit a)))) @ ((id_refl (b[@]e))[@] (!id_right_unit c[[@]]!id_left_unit a) @ (interchange c e e a)))))))
+                [@]
+                (id_refl (RB[@](RC[@]LA))))
+             @
+             (((id_refl (!(LA[@]RB[@]RC)))
+                 [@]
+                 ((id_refl (!((!id_left_unit b[[@]]!id_right_unit a) @ (interchange e b a e))[@]id_refl (c[@]e)))
+                    [@]
+                    ((id_refl ((!id_right_unit b[[@]]!id_left_unit a) [@] (id_refl (c[@]e))))
+                       [@]
+                       ((id_refl ((interchange b e e a) [@] (id_refl (c[@]e))))
+                          [@]
+                          ((id_refl (assoc (b[@]e) (e[@]a) (c[@]e)))
+                             [@]
+                             (assoc ((id_refl (b[@]e))[@]!(interchange e c a e)) ((id_refl (b[@]e)) [@] !(!id_left_unit c[[@]]!id_right_unit a)) ((id_refl (b[@]e))[@] (!id_right_unit c[[@]]!id_left_unit a) @ (interchange c e e a))))))))
+                [@]
+                (id_refl (RB[@](RC[@]LA))))
+             @
+             (((id_refl (!(LA[@]RB[@]RC)))
+                 [@]
+                 ((id_refl (!((!id_left_unit b[[@]]!id_right_unit a) @ (interchange e b a e))[@]id_refl (c[@]e)))
+                    [@]
+                    ((id_refl ((!id_right_unit b[[@]]!id_left_unit a) [@] (id_refl (c[@]e))))
+                       [@]
+                       (!assoc ((interchange b e e a)[@](id_refl (c[@]e))) (assoc (b[@]e) (e[@]a) (c[@]e)) (((id_refl (b[@]e))[@]!(interchange e c a e)) @ (((id_refl (b[@]e)) [@] !(!id_left_unit c[[@]]!id_right_unit a)) @ ((id_refl (b[@]e))[@] (!id_right_unit c[[@]]!id_left_unit a) @ (interchange c e e a))))))))
+                [@]
+                (id_refl (RB[@](RC[@]LA))))
+             @
+             (((id_refl (!(LA[@]RB[@]RC)))
+                 [@]
+                 ((id_refl (!((!id_left_unit b[[@]]!id_right_unit a) @ (interchange e b a e))[@]id_refl (c[@]e)))
+                    [@]
+                    ((id_refl ((!id_right_unit b[[@]]!id_left_unit a) [@] (id_refl (c[@]e))))
+                       [@]
+                       (!assoc (((interchange b e e a)[@](id_refl (c[@]e))) @ (assoc (b[@]e) (e[@]a) (c[@]e))) ((id_refl (b[@]e))[@]!(interchange e c a e)) 
+                         (((id_refl (b[@]e)) [@] !(!id_left_unit c[[@]]!id_right_unit a)) @ ((id_refl (b[@]e))[@] (!id_right_unit c[[@]]!id_left_unit a) @ (interchange c e e a)))))))
+                [@]
+                (id_refl (RB[@](RC[@]LA))))
+             @
+             (((id_refl (!(LA[@]RB[@]RC)))
+                 [@]
+                 ((id_refl (!((!id_left_unit b[[@]]!id_right_unit a) @ (interchange e b a e))[@]id_refl (c[@]e)))
+                    [@]
+                    ((id_refl ((!id_right_unit b[[@]]!id_left_unit a) [@] (id_refl (c[@]e))))
+                       [@]
+                       (M1 [@] (id_refl (((id_refl (b[@]e)) [@] !(!id_left_unit c[[@]]!id_right_unit a)) @ ((id_refl (b[@]e))[@] (!id_right_unit c[[@]]!id_left_unit a) @ (interchange c e e a))))))))
+                [@]
+                (id_refl (RB[@](RC[@]LA))))
+             @
+             ((!assoc (!(LA[@]RB[@]RC)) (!((!id_left_unit b[[@]]!id_right_unit a) @ (interchange e b a e))[@]id_refl (c[@]e))
+                (((!id_right_unit b[[@]]!id_left_unit a) [@] (id_refl (c[@]e)))
+                   @
+                   (((!(interchange (b @ e) c (e @ a) e) @ ((assoc b e c)[[@]](assoc e a e))) @ (interchange b (e @ c) e (a @ e))) @ (((id_refl (b[@]e)) [@] !(!id_left_unit c[[@]]!id_right_unit a)) @ ((id_refl (b[@]e))[@] (!id_right_unit c[[@]]!id_left_unit a) @ (interchange c e e a))))))
+                [@]
+                (id_refl (RB[@](RC[@]LA))))
+             @
+             ((!assoc ((!(LA[@]RB[@]RC)) @ (!((!id_left_unit b[[@]]!id_right_unit a) @ (interchange e b a e))[@]id_refl (c[@]e))) ((!id_right_unit b[[@]]!id_left_unit a) [@] (id_refl (c[@]e))) 
+                (((!(interchange (b @ e) c (e @ a) e) @ ((assoc b e c)[[@]](assoc e a e))) @ (interchange b (e @ c) e (a @ e))) @ (((id_refl (b[@]e)) [@] !(!id_left_unit c[[@]]!id_right_unit a)) @ ((id_refl (b[@]e))[@] (!id_right_unit c[[@]]!id_left_unit a) @ (interchange c e e a)))))
+                [@]
+                (id_refl (RB[@](RC[@]LA))))
+             @
+             ((!assoc (((!(LA[@]RB[@]RC)) @ (!((!id_left_unit b[[@]]!id_right_unit a) @ (interchange e b a e))[@]id_refl (c[@]e))) @ ((!id_right_unit b[[@]]!id_left_unit a) [@] (id_refl (c[@]e))))
+                ((!(interchange (b @ e) c (e @ a) e) @ ((assoc b e c)[[@]](assoc e a e))) @ (interchange b (e @ c) e (a @ e)))
+                (((id_refl (b[@]e)) [@] !(!id_left_unit c[[@]]!id_right_unit a)) @ ((id_refl (b[@]e))[@] (!id_right_unit c[[@]]!id_left_unit a) @ (interchange c e e a))))
+                [@]
+                (id_refl (RB[@](RC[@]LA))))
+             @
+             ((((id_refl (((!(LA[@]RB[@]RC)) @ (!((!id_left_unit b[[@]]!id_right_unit a) @ (interchange e b a e))[@]id_refl (c[@]e))) @ ((!id_right_unit b[[@]]!id_left_unit a) [@] (id_refl (c[@]e))))) [@] (assoc (!(interchange (b @ e) c (e @ a) e)) ((assoc b e c)[[@]](assoc e a e)) (interchange b (e @ c) e (a @ e))))
+                 [@]
+                 (id_refl (((id_refl (b[@]e)) [@] !(!id_left_unit c[[@]]!id_right_unit a)) @ ((id_refl (b[@]e))[@] (!id_right_unit c[[@]]!id_left_unit a) @ (interchange c e e a)))))
+                [@]
+                (id_refl (RB[@](RC[@]LA))))
+             @
+             (((!assoc (((!(LA[@]RB[@]RC)) @ (!((!id_left_unit b[[@]]!id_right_unit a) @ (interchange e b a e))[@]id_refl (c[@]e))) @ ((!id_right_unit b[[@]]!id_left_unit a) [@] (id_refl (c[@]e)))) (!(interchange (b @ e) c (e @ a) e)) (((assoc b e c)[[@]](assoc e a e)) @ (interchange b (e @ c) e (a @ e))))
+                 [@]
+                 (id_refl (((id_refl (b[@]e)) [@] !(!id_left_unit c[[@]]!id_right_unit a)) @ ((id_refl (b[@]e))[@] (!id_right_unit c[[@]]!id_left_unit a) @ (interchange c e e a)))))
+                [@]
+                (id_refl (RB[@](RC[@]LA))))
+             @
+             (((!assoc ((((!(LA[@]RB[@]RC)) @ (!((!id_left_unit b[[@]]!id_right_unit a) @ (interchange e b a e))[@]id_refl (c[@]e))) @ ((!id_right_unit b[[@]]!id_left_unit a) [@] (id_refl (c[@]e)))) @ (!(interchange (b @ e) c (e @ a) e))) ((assoc b e c)[[@]](assoc e a e)) (interchange b (e @ c) e (a @ e)))
+                 [@]
+                 (id_refl (((id_refl (b[@]e)) [@] !(!id_left_unit c[[@]]!id_right_unit a)) @ ((id_refl (b[@]e))[@] (!id_right_unit c[[@]]!id_left_unit a) @ (interchange c e e a)))))
+                [@]
+                (id_refl (RB[@](RC[@]LA))))
+             @
+             ((!assoc ((((((!(LA[@]RB[@]RC)) @ (!((!id_left_unit b[[@]]!id_right_unit a) @ (interchange e b a e))[@]id_refl (c[@]e))) @ ((!id_right_unit b[[@]]!id_left_unit a) [@] (id_refl (c[@]e)))) @ !(interchange (b @ e) c (e @ a) e)) @ ((assoc b e c)[[@]](assoc e a e))) @ (interchange b (e @ c) e (a @ e)))
+                ((id_refl (b[@]e)) [@] !(!id_left_unit c[[@]]!id_right_unit a)) ((id_refl (b[@]e))[@] (!id_right_unit c[[@]]!id_left_unit a) @ (interchange c e e a)))
+                [@]
+                (id_refl (RB[@](RC[@]LA))))
+          ).
+
    (* FIXME: Goalを示す
       (1)T3をM1で変形
       (2)(1)の結果をM2とM3で変形
