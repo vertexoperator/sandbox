@@ -33,22 +33,29 @@ public class CalcTest {
    }
 
    @Test(expected=ParseCancellationException.class)
-   public void parseTest1() {
+   public void parseErrorTest1() {
       Calc c = new Calc();
       c.eval("@");
    }
 
    @Test(expected=ParseCancellationException.class)
-   public void parseTest2() {
+   public void parseErrorTest2() {
       Calc c = new Calc();
       c.eval("1+#3@");
    }
 
    @Test(expected=ParseCancellationException.class)
-   public void parseTest3() {
+   public void parseErrorTest3() {
       Calc c = new Calc();
       c.eval("1+-3");
    }
+
+   @Test(expected=ParseCancellationException.class)
+   public void parseErrorTest4() {
+      Calc c = new Calc();
+      c.eval("3 4 + 7");
+   }
+
 
    @Test
    public void funcTest() {

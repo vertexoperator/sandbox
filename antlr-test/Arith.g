@@ -1,10 +1,4 @@
 grammar Arith;
-@rulecatch {
-    catch (RecognitionException e) {
-        System.out.println("rulecatch");
-        throw e;
-    }
-}
 
 @lexer::members {
   @Override
@@ -14,7 +8,7 @@ grammar Arith;
 
 }
 
-
+start : expr EOF;
 expr : prefix=('+' | '-')? mexpr (addsub mexpr)*;
 mexpr : atom (muldiv atom)*;
 atom : INT | '(' expr ')';
