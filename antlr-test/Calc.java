@@ -19,22 +19,22 @@ public class Calc{
         ArithLexer lexer = new ArithLexer(input);
         TokenStream tokens = new CommonTokenStream(lexer);
         ArithParser parser = new ArithParser(tokens);
-        ANTLRErrorStrategy errHandler =  new BailErrorStrategy();
+        ANTLRErrorStrategy errHandler =  new CalcErrorStrategy();
         parser.setErrorHandler( errHandler );
         parser.addParseListener(new ArithBaseListener());
-        ArithParser.ExprContext uu = parser.expr();
-        return eval(uu);
+        ArithParser.StartContext uu = parser.start();
+        return eval(uu.expr());
     }
 
     /* evalExprは再帰呼び出しを含んでいるので、非再帰バージョンも作っておく */
     /*
-       data Node = BigInteger n
+       data Node = Lit BigInteger
                  | Op String
-                 | Expr expr
-                 | MExpr mexpr
-                 | Atom atom
+                 | Expr ExprContext
+                 | MExpr MexprContext
+                 | Atom AtomContext
     */
-    public static class Node {
+    private static class Node {
        private BigInteger _n = null;
        private String _op = null; /* 四則演算 '+' , '-' , '*' , '/' */
        private ArithParser.ExprContext _expr = null;

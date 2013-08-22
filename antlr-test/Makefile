@@ -1,6 +1,6 @@
 ANTLR_SRC = Arith.g
 ANTLR_OBJS = ArithBaseListener.java  ArithLexer.java  ArithListener.java  ArithParser.java
-SRCS = Calc.java Main.java CalcTest.java
+SRCS = CalcErrorStrategy.java Calc.java Main.java CalcTest.java
 OBJS = $(SRCS:.java=.class) $(ANTLR_OBJS:.java=.class)
 CLASSPATH = .:./antlr-4.1-complete.jar:./junit-4.10.jar
 JAVAC = javac
