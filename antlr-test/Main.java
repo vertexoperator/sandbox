@@ -5,17 +5,18 @@ import org.antlr.v4.runtime.misc.ParseCancellationException;
 import java.lang.NumberFormatException;
 import java.math.BigInteger;
 import java.lang.ArithmeticException;
-
+import java.util.Scanner;
 
 public class Main{
     private static final String PROMPT = ">> ";
     public static void main(String[] args) throws Exception{
            Calc c = new Calc();
-           BufferedReader stdReader = new BufferedReader(new InputStreamReader(System.in));
-           System.out.print(PROMPT);
-           String line;
+           Scanner stdReader = new Scanner(System.in);
+          
            try{
-              while ((line = stdReader.readLine()) != null) {
+              System.out.print(PROMPT);
+              while ( stdReader.hasNextLine() ) {
+                 String line = stdReader.nextLine();
                  if (line.equals("exit"))break;
                  if (line.equals("")){
                     System.out.print(PROMPT);
@@ -35,14 +36,10 @@ public class Main{
                  System.out.print(PROMPT);
               }
               stdReader.close();
-           } catch(IOException e){
+           } catch(IllegalStateException e){
               e.printStackTrace();
            } finally {
-              try{
-                 if(stdReader!=null) stdReader.close();
-              } catch (IOException e){
-                 e.printStackTrace();
-              }
+              if(stdReader!=null) stdReader.close();
            }
     }
 
