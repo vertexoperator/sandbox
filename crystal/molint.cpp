@@ -24,29 +24,16 @@ static inline int binomial(int n , int k){
 extern "C" {
 #endif
 
-
 double computeERI(
             double xa,double ya,double za,int la,int ma,int na,double alphaa,
             double xb,double yb,double zb,int lb,int mb,int nb,double alphab,
 	    double xc,double yc,double zc,int lc,int mc,int nc,double alphac,
 	    double xd,double yd,double zd,int ld,int md,int nd,double alphad);
 
-
 #ifdef __cplusplus
 }
 #endif
 
-
-
-
-#if 0
-static inline int binomial(int n , int k){
-	int p=1;
-	for(int i = n ; i > k ; i--)p *= i;
-	for(int i = n-k ; i > 1 ; i--)p /= i;
-	return p;
-}
-#endif
 
 double computeERI1D(double t,int i,int j,int k, int l,double xi,double xj,double xk,double xl,double ai,double aj,double ak,double al){
 	int n,m,a,b;
