@@ -23,6 +23,7 @@ static inline int binomial(int n , int k){
 #ifdef __cplusplus
 extern "C" {
 #endif
+double Fgamma(int m, double X);
 
 double computeERI(
             double xa,double ya,double za,int la,int ma,int na,double alphaa,
@@ -34,6 +35,20 @@ double computeERI(
 }
 #endif
 
+//molecular incomplete gamma function or boys function
+//F_m(x) = \int_{0}^{1} t^{2*m} exp^{-x*t^2}dt
+double Fgamma(int m, double X){
+
+  computeRysParams(m+1 , X , roots, weights);
+
+  double ret = 0.0;
+  for(int i = 0; i < m+1 ; i++){
+	double t = roots[i]/(1+roots[i]);
+	ret += weights[i] * pow(t,m);
+  }
+  return ret;
+
+}
 
 double computeERI1D(double t,int i,int j,int k, int l,double xi,double xj,double xk,double xl,double ai,double aj,double ak,double al){
 	int n,m,a,b;

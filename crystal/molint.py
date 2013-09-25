@@ -10,10 +10,11 @@ M_PI = np.pi
 
 
 libhf = ctypes.cdll.LoadLibrary("libhf.so")
-computeRysParams = libhf.computeRysParams
 __computeERI__ = libhf.computeERI
 __computeERI__.restype = c_double
 
+Fgamma = libhf.Fgamma
+Fgamma.restype = c_double
 
 
 """
@@ -70,30 +71,30 @@ def geneig(H , S):
     vec = (R.T)*vec
     return val,vec
 
-
-#-- overlap integral
+"""
+overlap integral using Obara-Saika scheme
+"""
 def overlap(p , q):
   def overlap1D(a , b , x1 , x2 , n , m):
       if n<0 or m <0:
           return 0.0
       elif n==0 and m==0:
-          return sqrt(M_PI/(a+b))*exp(-a*b*(x1-x2)*(x1-x2)/(a+b))
-      elif n==1 and m==0:
-          return -b*(x1-x2)*overlap1D(a,b,x1,x2,0,0)/(a+b)
-      elif m==0:
-          assert(n>=2)
-          t1 = -b*(x1-x2)*overlap1D(a,b,x1,x2,n-1,0)
-          t2 = 0.5*(n-1)*overlap1D(a,b,x1,x2,n-2,0)
-          return (t1+t2)/(a+b)
+          return 1.0
+      elif n>0:
+          t1 = -b*(x1-x2)*overlap1D(a,b,x1,x2,n-1,m)
+          t2 = (n-1)*overlap1D(a,b,x1,x2,n-2,m)+m*overlap1D(a,b,x1,x2,n-1,m-1)
+          return (t1+0.5*t2)/(a+b)
       else:
-          assert(m>0)
-          t1 = overlap1D(a,b,x1,x2,n+1,m-1)
-          t2 = (x1-x2)*overlap1D(a,b,x1,x2,n,m-1)
-          return t1+t2
+          assert(n==0 and m>0)
+          t1 = a*(x1-x2)*overlap1D(a,b,x1,x2,n,m-1)
+          t2 = (m-1)*overlap1D(a,b,x1,x2,n,m-2)
+          return (t1+0.5*t2)/(a+b)
   Sx = overlap1D(p.alpha , q.alpha , p.x0 , q.x0 , p.nx , q.nx)
   Sy = overlap1D(p.alpha , q.alpha , p.y0 , q.y0 , p.ny , q.ny)
   Sz = overlap1D(p.alpha , q.alpha , p.z0 , q.z0 , p.nz , q.nz)
-  return (p.norm)*(q.norm)*(Sx*Sy*Sz)
+  eta = p.alpha + q.alpha
+  K = pow(M_PI/eta,1.5)*exp(-(p.alpha)*(q.alpha)*((p.x0-q.x0)**2+(p.y0-q.y0)**2+(p.z0-q.z0)**2)/eta)
+  return (p.norm)*(q.norm)*K*(Sx*Sy*Sz)
 
 
 #-- kinetic integral
@@ -113,42 +114,59 @@ def kinetic(p , q):
 
 
 """
- Nuclear Attraction Integral by Gauss-Rys integrator
+Nuclear Attraction Integral by McMurchie–Davidson Scheme
+
 atno:原子番号
-Ax/Ay/Az:原子のx/y/z座標
+Cx/Cy/Cz:原子のx/y/z座標
 """
-def computeNAI(p , q , atno , Ax, Ay, Az):
-    def computeNAI1D(t , a , b , xa , xb , xC , xp , p):
-       if a < 0 or b < 0:
-          return 0.0
-       elif a==0 and b==0:
-          return 1.0
-       elif b>0:
-          t1 = computeNAI1D(t , a+1 , b-1 , xa , xb , xC, xp , p)
-          t2 = (xa-xb)*computeNAI1D(t , a , b-1 , xa , xb , xC , xp , p)
-          return t1+t2
-       else:
-          assert(a> 0 and b==0)
-          t1 = (xp-xa-(xp-xC)*t)*computeNAI1D(t , a-1 , 0 , xa , xb , xC , xp , p)
-          t2 = (a-1)*(1-t)*computeNAI1D(t , a-2 , 0 , xa , xb , xC , xp , p)/(2*p)
-          return t1+t2
-    def fn(t,xp,yp,zp,gamma):
-       Ix = computeNAI1D(t, p.nx, q.nx, p.x0, q.x0, Ax, xp, gamma)
-       Iy = computeNAI1D(t, p.ny, q.ny, p.y0, q.y0, Ay, yp, gamma)
-       Iz = computeNAI1D(t, p.nz, q.nz, p.z0, q.z0, Az, zp, gamma)
-       return Ix*Iy*Iz
-    deg = (p.nx+p.ny+p.nz+q.nx+q.ny+q.nz)/2+1
+def computeNAI(p , q , atno , Cx, Cy, Cz):
     gamma = p.alpha + q.alpha
     r2 = (p.x0-q.x0)**2+(p.y0-q.y0)**2+(p.z0-q.z0)**2
-    Ex = (p.alpha*p.x0 + q.alpha*q.x0)/(p.alpha+q.alpha)
-    Ey = (p.alpha*p.y0 + q.alpha*q.y0)/(p.alpha+q.alpha)
-    Ez = (p.alpha*p.z0 + q.alpha*q.z0)/(p.alpha+q.alpha)
-    X = (p.alpha + q.alpha)*((Ax-Ex)**2+(Ay-Ey)**2+(Az-Ez)**2)
-    return atno*(p.norm)*(q.norm)*(-2*M_PI/gamma)*exp(-p.alpha*q.alpha*r2/gamma)*rysint(deg , X ,lambda t:fn(t,Ex,Ey,Ez,gamma))
+    Px = (p.alpha*p.x0 + q.alpha*q.x0)/gamma
+    Py = (p.alpha*p.y0 + q.alpha*q.y0)/gamma
+    Pz = (p.alpha*p.z0 + q.alpha*q.z0)/gamma
+    X = (p.alpha + q.alpha)*((Cx-Px)**2+(Cy-Py)**2+(Cz-Pz)**2)
+    K = exp(-p.alpha*q.alpha*r2/gamma)
+    def E(i,j,t,Pxyz,Axyz,Bxyz):
+       if  t<0 or (t>i+j):
+          return 0.0
+       elif i>0:
+          return 0.5*E(i-1,j,t-1,Pxyz,Axyz,Bxyz)/gamma + (Pxyz-Axyz)*E(i-1,j,t,Pxyz,Axyz,Bxyz) + (t+1)*E(i-1,j,t+1,Pxyz,Axyz,Bxyz)
+       elif j>0:
+          return 0.5*E(i,j-1,t-1,Pxyz,Axyz,Bxyz)/gamma + (Pxyz-Bxyz)*E(i,j-1,t,Pxyz,Axyz,Bxyz) + (t+1)*E(i,j-1,t+1,Pxyz,Axyz,Bxyz)
+       else:
+          assert(i==0 and j==0 and t==0)
+          return 1.0
+    def R(t,u,v,N):
+       if t<0 or u<0 or v<0:
+          return 0.0
+       elif t>0:
+          return (t-1)*R(t-2,u,v,N+1)+(Px-Cx)*R(t-1,u,v,N+1)
+       elif u>0:
+          return (u-1)*R(t,u-2,v,N+1)+(Py-Cy)*R(t,u-1,v,N+1)
+       elif v>0:
+          return (v-1)*R(t,u,v-2,N+1)+(Pz-Cz)*R(t,u,v-1,N+1)
+       else:
+          assert(t==0 and u==0 and v==0)
+          return pow(-2*gamma,N) * Fgamma(N,c_double(X))
+    s = 0.0
+    ex = [E(p.nx , q.nx , t , Px , p.x0 , q.x0) for t in xrange(0 , p.nx+q.nx+1)]
+    ey = [E(p.ny , q.ny , u , Py , p.y0 , q.y0) for u in xrange(0 , p.ny+q.ny+1)]
+    ez = [E(p.nz , q.nz , v , Pz , p.z0 , q.z0) for v in xrange(0 , p.nz+q.nz+1)]
+    for t in xrange(0 , p.nx+q.nx+1):
+       for u in xrange(0 , p.ny+q.ny+1):
+          for v in xrange(0 , p.nz+q.nz+1):
+             s += (ex[t] * ey[u] * ez[v] * R(t,u,v,0))
+    return -atno*(p.norm)*(q.norm)*(2*M_PI/gamma)*K*s
 
 
 """
-Electron Repulsion Integral by Gauss-Rys integrator
+Electron Repulsion Integral
+
+現在最速のアルゴリズムは
+The prism algorithm for two-electron integrals
+http://rscweb.anu.edu.au/~pgill/papers/026PRISM.pdf
+
 """
 def computeERI(a , b ,  c ,  d):
    t = __computeERI__(
@@ -196,17 +214,13 @@ def guessHuckel(atoms):
 
 
 #-- RHF calculation
-def runRHF(atoms , initC , N_occ=-1, maxiter=50 , opttol=1.0e-5):
+def runRHF(atoms , init=None , N_occ=-1, maxiter=50 , opttol=1.0e-5):
    Nbasis = len(atoms.basis)
    S , P , H = np.matrix(np.zeros((Nbasis,Nbasis))) , np.matrix(np.zeros((Nbasis,Nbasis))) , np.matrix(np.zeros((Nbasis,Nbasis))) 
    energy , old_energy = 0.0 , 0.0
    mix = 0.0   #-- 今は意味がない
    #-- initialization
    if N_occ==-1:N_occ = sum([n for (n,_,_,_) in atoms.nucleus])/2
-   for p in xrange(Nbasis):
-      for q in xrange(Nbasis):
-         for k in xrange(N_occ):
-            P[p,q] += initC[p,k]*initC[q,k]
    for i,v in enumerate(atoms.basis):
       for j,w in enumerate(atoms.basis):
           sval = 0.0
@@ -225,6 +239,18 @@ def runRHF(atoms , initC , N_occ=-1, maxiter=50 , opttol=1.0e-5):
        for c2,(n2,x2,y2,z2) in enumerate(atoms.nucleus):
            if c1<=c2:continue
            En += n1*n2/sqrt((x1-x2)**2+(y1-y2)**2+(z1-z2)**2)
+   if init is None:
+      #-- Huckel近似による初期状態
+      _,C = geneig(H,S)
+      for p in xrange(Nbasis):
+         for q in xrange(Nbasis):
+            for k in xrange(N_occ):
+               P[p,q] += C[p,k]*C[q,k]
+   else:
+      for p in xrange(Nbasis):
+         for q in xrange(Nbasis):
+            for k in xrange(N_occ):
+               P[p,q] += init[p,k]*init[q,k]
    #-- main loop
    F = np.matrix(np.zeros((Nbasis,Nbasis)))
    start_time = time.clock()
@@ -323,8 +349,8 @@ def Molecule(nucleus , basisSet):
                             pb.nx , pb.ny , pb.nz = nx,ny,nz
                             pb.x0 , pb.y0 , pb.z0 = ax,ay,az
                             pb.alpha = exponent
-                            norm = sqrt(pow(2,2*(nx+ny+nz)+1.5)*pow(exponent,nx+ny+nz+1.5)/(fact2(2*nx-1)*fact2(2*ny-1)*fact2(2*nz-1)*pow(M_PI,1.5)))
-                            pb.norm = norm*coeff
+                            norm2 = pow(2*exponent/M_PI,1.5)*pow(2,2*(nx+ny+nz))*pow(exponent,nx+ny+nz)/(fact2(2*nx-1)*fact2(2*ny-1)*fact2(2*nz-1))
+                            pb.norm = sqrt(norm2)*coeff
                             MO.append(pb)
                         atoms.basis.append( MO )
    return atoms
@@ -336,15 +362,13 @@ if __name__=="__main__":
       return (r)*1.8897261249935898
    basisSet = readBasis_g94(open('631g.g94'))
    H2 = Molecule([(1 , 0.0 , 0.0 , 0.0) , (1 , angstrom2bohr(0.74114) , 0.0 , 0.0)] , basisSet)
-   _,C = guessHuckel(H2)
-   E,C,check,t = runRHF(H2 , C)
+   E,C,check,t = runRHF(H2)
    assert(check),"SCF計算が収束していない"
    print("水素分子のエネルギー: %2.5f(hartree) SCF計算時間:%2.2f(s)" % (E,t))
    basisSet = readBasis_g94(open('sto3g.g94'))
    H2O_nm = [ (8 , -0.332 , 0.440 , -0.016) , (1 , 0.596 , 0.456 , 0.228) , (1,-0.596 , -0.456 , -0.228) ]
    H2O = Molecule([ (n,angstrom2bohr(x),angstrom2bohr(y),angstrom2bohr(z)) for (n,x,y,z) in H2O_nm ] , basisSet)
-   _,C = guessHuckel(H2O)
-   E,C,check,t = runRHF(H2O , C)
+   E,C,check,t = runRHF(H2O)
    assert(check),"SCF計算が収束していない"
    print("H2O分子のエネルギー: %2.5f(hartree) SCF計算時間:%2.2f(s)" % (E,t))
 
