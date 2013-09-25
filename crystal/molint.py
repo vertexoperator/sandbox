@@ -46,24 +46,6 @@ class Atoms:
       self.basis = []    #-- list of 縮約Gauss基底 , 縮約Gauss基底=list of 原始Gauss基底
 
 
-def rysint(degree , X , fn):
-   roots = (c_double * degree)()
-   weights = (c_double * degree)()
-   computeRysParams(ctypes.c_ulong(degree) , c_double(X) , ctypes.cast(roots,ctypes.POINTER(c_double)) , ctypes.cast(weights,ctypes.POINTER(c_double)))
-   s = 0.0
-   for i in xrange(0 , degree):
-       t = roots[i]/(1+roots[i])
-       s += fn(t)*weights[i]
-   return s
-
-
-#-- 二項係数
-def binomial(n , k):
-   dn = reduce(lambda x,y:x*y , range(k+1,n+1),1)
-   nm = reduce(lambda x,y:x*y , range(1,n-k+1),1)
-   return dn/nm
-
-
 #-- 一般化固有値問題
 def geneig(H , S):
     R = inv(cholesky(S))
