@@ -26,11 +26,10 @@ extern "C" {
 double Fgamma(int m, double X);
 
 double computeERI(
-            double xa,double ya,double za,int la,int ma,int na,double alphaa,
-            double xb,double yb,double zb,int lb,int mb,int nb,double alphab,
-	    double xc,double yc,double zc,int lc,int mc,int nc,double alphac,
-	    double xd,double yd,double zd,int ld,int md,int nd,double alphad);
-
+    double xa,double ya,double za,int la,int ma,int na,double *alphaa , double *anorm , int La ,
+    double xb,double yb,double zb,int lb,int mb,int nb,double *alphab , double *bnorm , int Lb ,
+    double xc,double yc,double zc,int lc,int mc,int nc,double *alphac , double *cnorm , int Lc ,
+    double xd,double yd,double zd,int ld,int md,int nd,double *alphad , double *dnorm , int Ld);
 #ifdef __cplusplus
 }
 #endif
@@ -104,12 +103,14 @@ HRR:
 		return ijkl;
 	}
 }
+   
 
-
-double computeERI(double xa,double ya,double za,int la,int ma,int na,double alphaa,
-	          double xb,double yb,double zb,int lb,int mb,int nb,double alphab,
-	          double xc,double yc,double zc,int lc,int mc,int nc,double alphac,
-		  double xd,double yd,double zd,int ld,int md,int nd,double alphad){
+           
+double computeERIprim(
+           double xa,double ya,double za,int la,int ma,int na,double alphaa,
+	   double xb,double yb,double zb,int lb,int mb,int nb,double alphab,
+	   double xc,double yc,double zc,int lc,int mc,int nc,double alphac,
+           double xd,double yd,double zd,int ld,int md,int nd,double alphad){
 
   int norder,i;
   double A,B,xp,yp,zp,xq,yq,zq,rpq2,X,rho,sum,t,Ix,Iy,Iz,invA,invB;
@@ -153,3 +154,28 @@ double computeERI(double xa,double ya,double za,int la,int ma,int na,double alph
 }
 
 
+double computeERI(
+   double xa,double ya,double za,int la,int ma,int na,double *alphaa , double *anorm , int La ,
+   double xb,double yb,double zb,int lb,int mb,int nb,double *alphab , double *bnorm , int Lb ,
+   double xc,double yc,double zc,int lc,int mc,int nc,double *alphac , double *cnorm , int Lc ,
+   double xd,double yd,double zd,int ld,int md,int nd,double *alphad , double *dnorm , int Ld){
+
+   int p,q,r,s;
+   double ret=0.0,tmp;
+   for(p = 0 ; p < La ; p++){
+      for(q = 0 ; q < Lb ; q++){
+         for(r = 0 ; r < Lc ; r++){
+            for(s = 0 ; s < Ld ; s++){
+               tmp = computeERIprim(xa,ya,za,la,ma,na,alphaa[p]  ,
+                                   xb,yb,zb,lb,mb,nb,alphab[q]  ,
+                                   xc,yc,zc,lc,mc,nc,alphac[r]  ,
+                                   xd,yd,zd,ld,md,nd,alphad[s]  );
+               ret += anorm[p]*bnorm[q]*cnorm[r]*dnorm[s]*tmp;
+            }
+         }
+      }
+   }
+   return ret;
+}
+
+                            

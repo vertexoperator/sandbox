@@ -169,47 +169,56 @@ http://rscweb.anu.edu.au/~pgill/papers/026PRISM.pdf
 
 """
 def computeERI(a , b ,  c ,  d):
+   anorms = (c_double * len(a))()
+   bnorms = (c_double * len(b))()
+   cnorms = (c_double * len(c))()
+   dnorms = (c_double * len(d))()
+   aexps  = (c_double * len(a))()
+   bexps  = (c_double * len(b))()
+   cexps  = (c_double * len(c))()
+   dexps  = (c_double * len(d))()
+   for n,pf in enumerate(a):
+      anorms[n] = pf.norm
+      aexps[n]  = pf.alpha
+   for n,pf in enumerate(b):
+      bnorms[n] = pf.norm
+      bexps[n]  = pf.alpha
+   for n,pf in enumerate(c):
+      cnorms[n] = pf.norm
+      cexps[n]  = pf.alpha
+   for n,pf in enumerate(d):
+      dnorms[n] = pf.norm
+      dexps[n]  = pf.alpha
    t = __computeERI__(
-         c_double(a.x0),
-         c_double(a.y0),
-         c_double(a.z0),a.nx,a.ny,a.nz,
-         c_double(a.alpha) , 
-         c_double(b.x0),
-         c_double(b.y0),
-         c_double(b.z0),b.nx,b.ny,b.nz,
-         c_double(b.alpha) , 
-         c_double(c.x0),
-         c_double(c.y0),
-         c_double(c.z0),c.nx,c.ny,c.nz,
-         c_double(c.alpha) , 
-         c_double(d.x0),
-         c_double(d.y0),
-         c_double(d.z0),d.nx,d.ny,d.nz,
-         c_double(d.alpha))
-   return (a.norm)*(b.norm)*(c.norm)*(d.norm)*t
-
-
-
-
-#-- Huckel法
-def guessHuckel(atoms):
-   Nbasis = len(atoms.basis)
-   S , H =  np.matrix(np.zeros((Nbasis,Nbasis))) , np.matrix(np.zeros((Nbasis,Nbasis)))
-   for i,v in enumerate(atoms.basis):
-      for j,w in enumerate(atoms.basis):
-          sval = 0.0
-          kinval = 0.0
-          naival = 0.0
-          for pf in v:
-              for qf in w:
-                  sval += overlap(pf , qf)
-                  kinval += kinetic(pf , qf)
-                  for (AN,Ax,Ay,Az) in atoms.nucleus:
-                      naival += computeNAI(pf , qf , AN  , Ax , Ay , Az)
-          S[i,j] = sval
-          H[i,j] = kinval + naival
-   #-- solve H x = E S x
-   return geneig(H , S)
+       c_double(a[0].x0),
+       c_double(a[0].y0),
+       c_double(a[0].z0),
+       a[0].nx,a[0].ny,a[0].nz,
+       ctypes.cast(aexps , ctypes.POINTER(c_double)),
+       ctypes.cast(anorms , ctypes.POINTER(c_double)),
+       len(a),
+       c_double(b[0].x0),
+       c_double(b[0].y0),
+       c_double(b[0].z0),
+       b[0].nx,b[0].ny,b[0].nz,
+       ctypes.cast(bexps , ctypes.POINTER(c_double)),
+       ctypes.cast(bnorms , ctypes.POINTER(c_double)),
+       len(b),
+       c_double(c[0].x0),
+       c_double(c[0].y0),
+       c_double(c[0].z0),
+       c[0].nx,c[0].ny,c[0].nz,
+       ctypes.cast(cexps , ctypes.POINTER(c_double)),
+       ctypes.cast(cnorms , ctypes.POINTER(c_double)),
+       len(c),
+       c_double(d[0].x0),
+       c_double(d[0].y0),
+       c_double(d[0].z0),
+       d[0].nx,d[0].ny,d[0].nz,
+       ctypes.cast(dexps , ctypes.POINTER(c_double)),
+       ctypes.cast(dnorms , ctypes.POINTER(c_double)),
+       len(d))
+   return t
 
 
 
@@ -264,14 +273,27 @@ def runRHF(atoms , init=None , N_occ=-1, maxiter=50 , opttol=1.0e-5):
            for j,ej in enumerate(atoms.basis):
               for k,ek in enumerate(atoms.basis):
                   for l,el in enumerate(atoms.basis):
-                        ijkl = 0.0
-                        for pf in ei:
-                           for qf in ej:
-                              for rf in ek:
-                                 for sf in el:
-                                      ijkl += computeERI(pf , qf , rf , sf)
+                        if i<j or k<l:continue
+                        ijkl = computeERI(ei,ej,ek,el)
                         F[i,j] += 2.0*P[k,l]*ijkl
                         F[i,l] += -P[k,j]*ijkl
+                        """
+                          (ij|kl) = (ji|kl) = (ij|lk) = (ji|kl) = 
+                          (kl|ij) = (lk|ij) = (lk|ji) = (kl|ji)
+                        """
+                        if i!=j and k!=l:
+                           F[j,i] += 2.0*P[k,l]*ijkl
+                           F[j,l] += -P[k,i]*ijkl
+                           F[i,j] += 2.0*P[l,k]*ijkl
+                           F[i,k] += -P[l,j]*ijkl
+                           F[j,i] += 2.0*P[l,k]*ijkl
+                           F[j,k] += -P[l,i]*ijkl
+                        elif i!=j:
+                           F[j,i] += 2.0*P[k,l]*ijkl
+                           F[j,l] += -P[k,i]*ijkl
+                        elif k!=l:
+                           F[i,j] += 2.0*P[l,k]*ijkl
+                           F[i,k] += -P[l,j]*ijkl
         Es,C = geneig(F , S)
         for p in xrange(Nbasis):
            for q in xrange(Nbasis):
