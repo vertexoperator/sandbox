@@ -1,17 +1,41 @@
 #include "crys.h"
 #include <math.h>
+
 #ifndef M_PI
 #define M_PI 3.1415926535897932384626433
 #endif
 
 #define MAXROOTS 13
 
-//Rys多項式のRootsとWeightsを一時的に格納
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-static double roots[MAXROOTS];
-static double weights[MAXROOTS];
-static double G[MAXROOTS][MAXROOTS];
+typedef struct {
+    long nx;
+    long ny;
+    long nz;
+    double x;
+    double y;
+    double z;
+    double *norms;
+    double *exponents;
+    long length;
+} GaussBasis;
 
+double Fm(int m, double X);
+
+double computeERI(
+    double xa,double ya,double za,int la,int ma,int na,double *alphaa , double *anorm , int La ,
+    double xb,double yb,double zb,int lb,int mb,int nb,double *alphab , double *bnorm , int Lb ,
+    double xc,double yc,double zc,int lc,int mc,int nc,double *alphac , double *cnorm , int Lc ,
+    double xd,double yd,double zd,int ld,int md,int nd,double *alphad , double *dnorm , int Ld);
+
+void computeFockMatrix(GaussBasis *basis , int Nbasis , double *P , double *F);
+
+#ifdef __cplusplus
+}
+#endif
 
 static inline int binomial(int n , int k){
         int p=1;
@@ -20,27 +44,10 @@ static inline int binomial(int n , int k){
         return p;
 }
 
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-double Fgamma(int m, double X);
-
-
-double computeERI(
-    double xa,double ya,double za,int la,int ma,int na,double *alphaa , double *anorm , int La ,
-    double xb,double yb,double zb,int lb,int mb,int nb,double *alphab , double *bnorm , int Lb ,
-    double xc,double yc,double zc,int lc,int mc,int nc,double *alphac , double *cnorm , int Lc ,
-    double xd,double yd,double zd,int ld,int md,int nd,double *alphad , double *dnorm , int Ld);
-
-
-#ifdef __cplusplus
-}
-#endif
-
 //molecular incomplete gamma function or boys function
 //F_m(x) = \int_{0}^{1} t^{2*m} exp^{-x*t^2}dt
-double Fgamma(int m, double X){
+double Fm(int m, double X){
+  double roots[MAXROOTS],weights[MAXROOTS];
 
   computeRysParams(m+1 , X , roots, weights);
 
@@ -58,6 +65,7 @@ double computeERI1D(double t,int i,int j,int k, int l,double xi,double xj,double
 	double A,B,Px,Qx,fff;
 	double B00,B10,B01,C10,C01;
 	double xij=xi-xj,xkl=xk-xl;
+        double G[MAXROOTS][MAXROOTS];
 
 	n = i+j;
 	m = k+l;
@@ -110,7 +118,7 @@ HRR:
    
 
            
-double computeERIprim(
+inline double computeERIprim(
            double xa,double ya,double za,int la,int ma,int na,double alphaa,
 	   double xb,double yb,double zb,int lb,int mb,int nb,double alphab,
 	   double xc,double yc,double zc,int lc,int mc,int nc,double alphac,
@@ -119,6 +127,7 @@ double computeERIprim(
   int norder,i;
   double A,B,xp,yp,zp,xq,yq,zq,rpq2,X,rho,sum,t,Ix,Iy,Iz,invA,invB;
   double rab2,rcd2,K;
+  double roots[MAXROOTS],weights[MAXROOTS];
 
   A = alphaa+alphab; 
   B = alphac+alphad;
@@ -159,7 +168,6 @@ double computeERIprim(
 
 
 
-
 double computeERI(
    double xa,double ya,double za,int la,int ma,int na,double *alphaa , double *anorm , int La ,
    double xb,double yb,double zb,int lb,int mb,int nb,double *alphab , double *bnorm , int Lb ,
@@ -169,19 +177,72 @@ double computeERI(
    int p,q,r,s;
    double ret=0.0,tmp;
    for(p = 0 ; p < La ; p++){
-      for(q = 0 ; q < Lb ; q++){
-         for(r = 0 ; r < Lc ; r++){
-            for(s = 0 ; s < Ld ; s++){
-               tmp = computeERIprim(xa,ya,za,la,ma,na,alphaa[p]  ,
-                                   xb,yb,zb,lb,mb,nb,alphab[q]  ,
-                                   xc,yc,zc,lc,mc,nc,alphac[r]  ,
-                                   xd,yd,zd,ld,md,nd,alphad[s]  );
-               ret += anorm[p]*bnorm[q]*cnorm[r]*dnorm[s]*tmp;
-            }
-         }
-      }
+       for(q = 0 ; q < Lb ; q++){
+           for(r = 0 ; r < Lc ; r++){
+               for(s = 0 ; s < Ld ; s++){
+                     tmp = computeERIprim(xa,ya,za,la,ma,na,alphaa[p]  ,
+                                          xb,yb,zb,lb,mb,nb,alphab[q]  ,
+                                          xc,yc,zc,lc,mc,nc,alphac[r]  ,
+                                          xd,yd,zd,ld,md,nd,alphad[s]  );
+                     ret += anorm[p]*bnorm[q]*cnorm[r]*dnorm[s]*tmp;
+               }
+           }
+       }
    }
    return ret;
 }
 
-                            
+
+/*
+basis:縮約Gauss基底の配列
+Nbasis:基底の個数
+P:密度行列
+F:Fock行列(返り値)
+*/
+void computeFockMatrix(GaussBasis *basis , int Nbasis , double *P , double *F){
+  int i,j,k,l;
+  double ijkl;
+  GaussBasis a,b,c,d;
+
+  for(i = 0 ; i < Nbasis ; i++){
+     a = basis[i];
+     for(j = i ; j < Nbasis ; j++){
+        b = basis[j];
+        for(k = 0 ; k < Nbasis ; k++){
+           c = basis[k];
+           for(l = k ; l < Nbasis ; l++){
+                d = basis[l];
+                ijkl = computeERI(a.x , a.y , a.z , a.nx , a.ny , a.nz , a.exponents , a.norms , a.length ,
+                                  b.x , b.y , b.z , b.nx , b.ny , b.nz , b.exponents , b.norms , b.length ,
+                                  c.x , c.y , c.z , c.nx , c.ny , c.nz , c.exponents , c.norms , c.length ,
+                                  d.x , d.y , d.z , d.nx , d.ny , d.nz , d.exponents , d.norms , d.length );
+            /*
+                F[i,j] += 2.0*P[k,l]*(ij|kl)
+                F[i,l] += -P[k,j]*(ij|kl)
+            */
+                F[i+j*Nbasis] += 2.0*P[k+l*Nbasis]*ijkl;
+                F[i+l*Nbasis] -= P[k+j*Nbasis]*ijkl; 
+             /*
+                 (ij|kl) = (ji|kl) = (ij|lk) = (ji|kl) =
+                 (kl|ij) = (lk|ij) = (lk|ji) = (kl|ji)
+              */
+                if(i!=j && k!=l){
+                   F[j+i*Nbasis] += 2.0*P[k+l*Nbasis]*ijkl;
+                   F[j+l*Nbasis] += -P[k+i*Nbasis]*ijkl;
+                   F[i+j*Nbasis] += 2.0*P[l+k*Nbasis]*ijkl;
+                   F[i+k*Nbasis] += -P[l+j*Nbasis]*ijkl;
+                   F[j+i*Nbasis] += 2.0*P[l+k*Nbasis]*ijkl;
+                   F[j+k*Nbasis] += -P[l+i*Nbasis]*ijkl;
+                }else if(i!=j){
+                   F[j+i*Nbasis] += 2.0*P[k+l*Nbasis]*ijkl;
+                   F[j+l*Nbasis] += -P[k+i*Nbasis]*ijkl;
+                }else if(k!=l){
+                   F[i+j*Nbasis] += 2.0*P[l+k*Nbasis]*ijkl;
+                   F[i+k*Nbasis] += -P[l+j*Nbasis]*ijkl;
+                }
+           }
+        }
+     }
+  }
+  return ;
+}

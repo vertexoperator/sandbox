@@ -12,9 +12,10 @@ M_PI = np.pi
 libhf = ctypes.cdll.LoadLibrary("libhf.so")
 __computeERI__ = libhf.computeERI
 __computeERI__.restype = c_double
+computeFockMatrix = libhf.computeFockMatrix
 
-Fgamma = libhf.Fgamma
-Fgamma.restype = c_double
+Fm = libhf.Fm
+Fm.restype = c_double
 
 
 """
@@ -45,7 +46,7 @@ class PrimitiveBasis:
 縮約Gauss基底のC/C++コード側でのデータ型
 """
 class CGaussBasis(ctypes.Structure):
-   __fields__ = [("nx" , c_long),
+     _fields_ = [("nx" , c_long),
                  ("ny" , c_long),
                  ("nz" , c_long),
                  ("x" , c_double),
@@ -94,9 +95,9 @@ class GaussBasis:
          _norms[i] = norm
       for i,exponent in enumerate(self.exponents):
          _exponents[i] = exponent
-      rawdata = CGaussBasis(nx=self.nx , 
-                            ny=self.ny , 
-                            nz=self.nz ,
+      rawdata = CGaussBasis(nx=c_long(self.nx) , 
+                            ny=c_long(self.ny) , 
+                            nz=c_long(self.nz) ,
                             x=c_double(self.x) , 
                             y=c_double(self.y) , 
                             z=c_double(self.z) , 
@@ -197,7 +198,7 @@ def computeNAI(p , q , atno , Cx, Cy, Cz):
           return (v-1)*R(t,u,v-2,N+1)+(Pz-Cz)*R(t,u,v-1,N+1)
        else:
           assert(t==0 and u==0 and v==0)
-          return pow(-2*gamma,N) * Fgamma(N,c_double(X))
+          return pow(-2*gamma,N) * Fm(N,c_double(X))
     s = 0.0
     ex = [E(p.nx , q.nx , t , Px , p.x0 , q.x0) for t in xrange(0 , p.nx+q.nx+1)]
     ey = [E(p.ny , q.ny , u , Py , p.y0 , q.y0) for u in xrange(0 , p.ny+q.ny+1)]
@@ -221,27 +222,25 @@ http://rscweb.anu.edu.au/~pgill/papers/026PRISM.pdf
 
 A Tensor Approach to Two-Electron Matrix Elements
 http://rsc.anu.edu.au/~pgill/papers/061COLD.pdf
-
-
 """
 def computeERI(a , b ,  c ,  d):
    t = __computeERI__(
-       a.x,a.y,a.z,
+       c_double(a.x) ,c_double(a.y), c_double(a.z),
        a.nx,a.ny,a.nz,
        a.exponents,
        a.norms,
        a.length,
-       b.x,b.y,b.z,
+       c_double(b.x),c_double(b.y),c_double(b.z),
        b.nx,b.ny,b.nz,
        b.exponents,
        b.norms,
        b.length,
-       c.x,c.y,c.z,
+       c_double(c.x),c_double(c.y),c_double(c.z),
        c.nx,c.ny,c.nz,
        c.exponents,
        c.norms,
        c.length,
-       d.x,d.y,d.z,
+       c_double(d.x),c_double(d.y),c_double(d.z),
        d.nx,d.ny,d.nz,
        d.exponents,
        d.norms,
@@ -256,7 +255,10 @@ def runRHF(atoms , init=None , N_occ=-1, maxiter=50 , opttol=1.0e-5):
    S , P , H = np.matrix(np.zeros((Nbasis,Nbasis))) , np.matrix(np.zeros((Nbasis,Nbasis))) , np.matrix(np.zeros((Nbasis,Nbasis))) 
    energy , old_energy = 0.0 , 0.0
    mix = 0.0   #-- 今は意味がない
-   cbasis = [b.ctype() for b in atoms.basis]
+   cbasis = (CGaussBasis * Nbasis)()
+   for (n,b) in enumerate(atoms.basis):
+       cbasis[n] = b.ctype()
+   cbasis = ctypes.cast(cbasis , ctypes.POINTER(CGaussBasis))
    #-- initialization
    if N_occ==-1:N_occ = sum([n for (n,_,_,_) in atoms.nucleus])/2
    for i,v in enumerate(atoms.basis):
@@ -292,37 +294,12 @@ def runRHF(atoms , init=None , N_occ=-1, maxiter=50 , opttol=1.0e-5):
    #-- main loop
    F = np.matrix(np.zeros((Nbasis,Nbasis)))
    start_time = time.clock()
-   for iter in xrange(maxiter):
-        #-- copy matrix
-        for i in xrange(Nbasis):
-           for j in xrange(Nbasis):
-               F[i,j] = H[i,j]
-        #-- compute ERI
-        for i,ei in enumerate(cbasis):
-           for j,ej in enumerate(cbasis):
-              for k,ek in enumerate(cbasis):
-                  for l,el in enumerate(cbasis):
-                        if i<j or k<l:continue
-                        ijkl = computeERI(ei,ej,ek,el)
-                        F[i,j] += 2.0*P[k,l]*ijkl
-                        F[i,l] += -P[k,j]*ijkl
-                        """
-                          (ij|kl) = (ji|kl) = (ij|lk) = (ji|kl) = 
-                          (kl|ij) = (lk|ij) = (lk|ji) = (kl|ji)
-                        """
-                        if i!=j and k!=l:
-                           F[j,i] += 2.0*P[k,l]*ijkl
-                           F[j,l] += -P[k,i]*ijkl
-                           F[i,j] += 2.0*P[l,k]*ijkl
-                           F[i,k] += -P[l,j]*ijkl
-                           F[j,i] += 2.0*P[l,k]*ijkl
-                           F[j,k] += -P[l,i]*ijkl
-                        elif i!=j:
-                           F[j,i] += 2.0*P[k,l]*ijkl
-                           F[j,l] += -P[k,i]*ijkl
-                        elif k!=l:
-                           F[i,j] += 2.0*P[l,k]*ijkl
-                           F[i,k] += -P[l,j]*ijkl
+   for it in xrange(maxiter):
+        np.copyto(F , H)
+        computeFockMatrix(cbasis , 
+                          Nbasis , 
+                          P.ctypes.data_as(ctypes.POINTER(c_double)) , 
+                          F.ctypes.data_as(ctypes.POINTER(c_double)))
         Es,C = geneig(F , S)
         for p in xrange(Nbasis):
            for q in xrange(Nbasis):
@@ -331,7 +308,7 @@ def runRHF(atoms , init=None , N_occ=-1, maxiter=50 , opttol=1.0e-5):
                    P[p,q] += (1.0-mix)*C[p,k]*C[q,k]
         old_energy = energy
         energy = En + Es[:N_occ].sum() + np.trace(P*H.T)
-        if iter>0 and abs(old_energy - energy)<opttol:
+        if it>0 and abs(old_energy - energy)<opttol:
             end_time = time.clock()
             return (energy,C,True,end_time-start_time)
    end_time = time.clock()
@@ -371,7 +348,7 @@ from util import *
 if __name__=="__main__":
    def angstrom2bohr(r):
       return (r)*1.8897261249935898
-   basisSet = json.load(open('basis/631g.js'))
+   basisSet = json.load(open('basis/631gss.js'))
    H2 = Molecule([(1 , 0.0 , 0.0 , 0.0) , (1 , angstrom2bohr(0.74114) , 0.0 , 0.0)] , basisSet)
    E,C,check,t = runRHF(H2)
    assert(check),"SCF計算が収束していない"
