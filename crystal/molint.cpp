@@ -20,16 +20,20 @@ static inline int binomial(int n , int k){
         return p;
 }
 
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 double Fgamma(int m, double X);
+
 
 double computeERI(
     double xa,double ya,double za,int la,int ma,int na,double *alphaa , double *anorm , int La ,
     double xb,double yb,double zb,int lb,int mb,int nb,double *alphab , double *bnorm , int Lb ,
     double xc,double yc,double zc,int lc,int mc,int nc,double *alphac , double *cnorm , int Lc ,
     double xd,double yd,double zd,int ld,int md,int nd,double *alphad , double *dnorm , int Ld);
+
+
 #ifdef __cplusplus
 }
 #endif
@@ -152,6 +156,8 @@ double computeERIprim(
   }
   return K*sum;
 }
+
+
 
 
 double computeERI(

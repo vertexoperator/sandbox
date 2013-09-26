@@ -27,6 +27,7 @@ norm*(x-x0)^nx*(y-y0)^ny*(z-z0)^nz*exp( alpha*( (x-x0)**2 + (y-y0)**2 + (z-z0)**
 
 """
 class PrimitiveBasis:
+   __slots__ = ['nx','ny','nz','x0','y0','z0','alpha','norm']
    def __init__(self):
       self.nx = 0
       self.ny = 0
@@ -40,10 +41,75 @@ class PrimitiveBasis:
       return str(self.__dict__)
 
 
+"""
+縮約Gauss基底のC/C++コード側でのデータ型
+"""
+class CGaussBasis(ctypes.Structure):
+   __fields__ = [("nx" , c_long),
+                 ("ny" , c_long),
+                 ("nz" , c_long),
+                 ("x" , c_double),
+                 ("y" , c_double),
+                 ("z" , c_double),
+                 ("norms" , ctypes.POINTER(c_double)),
+                 ("exponents" , ctypes.POINTER(c_double)),
+                 ("length" , c_long)]
+
+
+"""
+Contracted Gauss-type Basis
+each contracted gauss-type basis:
+\sum_{I=0}^{L-1} norms[I]*(x-x0)^nx*(y-y0)^ny*(z-z0)^nz*exp( exponents[I]*( (x-x0)**2 + (y-y0)**2 + (z-z0)**2 ) )
+
+長さの単位は、a.u./bohr
+1 bohr = 0.52917721092(17) nm
+"""
+class GaussBasis:
+   __slots__ = ['nx','ny','nz','x','y','z']
+   def __init__(self , _nx,_ny,_nz,_x,_y,_z):
+      self.nx = _nx
+      self.ny = _ny
+      self.nz = _nz
+      self.x = _x
+      self.y = _y
+      self.z = _z
+      self.exponents = []
+      self.norms = []
+   def __repr__(self):
+      return str(self.__dict__)
+   def __len__(self):
+      assert(len(self.exponents)==len(self.norms))
+      return len(self.exponents)
+   def __iter__(self):
+      for (norm,alpha) in zip(self.norms,self.exponents):
+         pb = PrimitiveBasis()
+         pb.nx , pb.ny , pb.nz = self.nx , self.ny , self.nz
+         pb.x0 , pb.y0 , pb.z0 = self.x , self.y , self.z
+         pb.norm , pb.alpha = norm , alpha 
+         yield pb
+   def ctype(self):
+      _norms = (c_double * len(self.norms))()
+      _exponents = (c_double * len(self.exponents))()
+      for i,norm in enumerate(self.norms):
+         _norms[i] = norm
+      for i,exponent in enumerate(self.exponents):
+         _exponents[i] = exponent
+      rawdata = CGaussBasis(nx=self.nx , 
+                            ny=self.ny , 
+                            nz=self.nz ,
+                            x=c_double(self.x) , 
+                            y=c_double(self.y) , 
+                            z=c_double(self.z) , 
+                            norms=ctypes.cast(_norms , ctypes.POINTER(c_double)),
+                            exponents=ctypes.cast(_exponents , ctypes.POINTER(c_double)),
+                            length=len(self.norms) )
+      return rawdata
+
+
 class Atoms:
    def __init__(self):
       self.nucleus = []  #-- list of (atom no,x,y,z) of atomic nucleus
-      self.basis = []    #-- list of 縮約Gauss基底 , 縮約Gauss基底=list of 原始Gauss基底
+      self.basis = []    #-- list of 縮約Gauss基底
 
 
 #-- 一般化固有値問題
@@ -77,6 +143,7 @@ def overlap(p , q):
   eta = p.alpha + q.alpha
   K = pow(M_PI/eta,1.5)*exp(-(p.alpha)*(q.alpha)*((p.x0-q.x0)**2+(p.y0-q.y0)**2+(p.z0-q.z0)**2)/eta)
   return (p.norm)*(q.norm)*K*(Sx*Sy*Sz)
+
 
 
 #-- kinetic integral
@@ -145,61 +212,40 @@ def computeNAI(p , q , atno , Cx, Cy, Cz):
 """
 Electron Repulsion Integral
 
-現在最速のアルゴリズムは
+よりよいアルゴリズムの候補
+Two-Electron Repulsion Integrals Over Gaussian s Functions
+http://rsc.anu.edu.au/~pgill/papers/025ssss.pdf
+
 The prism algorithm for two-electron integrals
 http://rscweb.anu.edu.au/~pgill/papers/026PRISM.pdf
 
+A Tensor Approach to Two-Electron Matrix Elements
+http://rsc.anu.edu.au/~pgill/papers/061COLD.pdf
+
+
 """
 def computeERI(a , b ,  c ,  d):
-   anorms = (c_double * len(a))()
-   bnorms = (c_double * len(b))()
-   cnorms = (c_double * len(c))()
-   dnorms = (c_double * len(d))()
-   aexps  = (c_double * len(a))()
-   bexps  = (c_double * len(b))()
-   cexps  = (c_double * len(c))()
-   dexps  = (c_double * len(d))()
-   for n,pf in enumerate(a):
-      anorms[n] = pf.norm
-      aexps[n]  = pf.alpha
-   for n,pf in enumerate(b):
-      bnorms[n] = pf.norm
-      bexps[n]  = pf.alpha
-   for n,pf in enumerate(c):
-      cnorms[n] = pf.norm
-      cexps[n]  = pf.alpha
-   for n,pf in enumerate(d):
-      dnorms[n] = pf.norm
-      dexps[n]  = pf.alpha
    t = __computeERI__(
-       c_double(a[0].x0),
-       c_double(a[0].y0),
-       c_double(a[0].z0),
-       a[0].nx,a[0].ny,a[0].nz,
-       ctypes.cast(aexps , ctypes.POINTER(c_double)),
-       ctypes.cast(anorms , ctypes.POINTER(c_double)),
-       len(a),
-       c_double(b[0].x0),
-       c_double(b[0].y0),
-       c_double(b[0].z0),
-       b[0].nx,b[0].ny,b[0].nz,
-       ctypes.cast(bexps , ctypes.POINTER(c_double)),
-       ctypes.cast(bnorms , ctypes.POINTER(c_double)),
-       len(b),
-       c_double(c[0].x0),
-       c_double(c[0].y0),
-       c_double(c[0].z0),
-       c[0].nx,c[0].ny,c[0].nz,
-       ctypes.cast(cexps , ctypes.POINTER(c_double)),
-       ctypes.cast(cnorms , ctypes.POINTER(c_double)),
-       len(c),
-       c_double(d[0].x0),
-       c_double(d[0].y0),
-       c_double(d[0].z0),
-       d[0].nx,d[0].ny,d[0].nz,
-       ctypes.cast(dexps , ctypes.POINTER(c_double)),
-       ctypes.cast(dnorms , ctypes.POINTER(c_double)),
-       len(d))
+       a.x,a.y,a.z,
+       a.nx,a.ny,a.nz,
+       a.exponents,
+       a.norms,
+       a.length,
+       b.x,b.y,b.z,
+       b.nx,b.ny,b.nz,
+       b.exponents,
+       b.norms,
+       b.length,
+       c.x,c.y,c.z,
+       c.nx,c.ny,c.nz,
+       c.exponents,
+       c.norms,
+       c.length,
+       d.x,d.y,d.z,
+       d.nx,d.ny,d.nz,
+       d.exponents,
+       d.norms,
+       d.length)
    return t
 
 
@@ -210,6 +256,7 @@ def runRHF(atoms , init=None , N_occ=-1, maxiter=50 , opttol=1.0e-5):
    S , P , H = np.matrix(np.zeros((Nbasis,Nbasis))) , np.matrix(np.zeros((Nbasis,Nbasis))) , np.matrix(np.zeros((Nbasis,Nbasis))) 
    energy , old_energy = 0.0 , 0.0
    mix = 0.0   #-- 今は意味がない
+   cbasis = [b.ctype() for b in atoms.basis]
    #-- initialization
    if N_occ==-1:N_occ = sum([n for (n,_,_,_) in atoms.nucleus])/2
    for i,v in enumerate(atoms.basis):
@@ -251,10 +298,10 @@ def runRHF(atoms , init=None , N_occ=-1, maxiter=50 , opttol=1.0e-5):
            for j in xrange(Nbasis):
                F[i,j] = H[i,j]
         #-- compute ERI
-        for i,ei in enumerate(atoms.basis):
-           for j,ej in enumerate(atoms.basis):
-              for k,ek in enumerate(atoms.basis):
-                  for l,el in enumerate(atoms.basis):
+        for i,ei in enumerate(cbasis):
+           for j,ej in enumerate(cbasis):
+              for k,ek in enumerate(cbasis):
+                  for l,el in enumerate(cbasis):
                         if i<j or k<l:continue
                         ijkl = computeERI(ei,ej,ek,el)
                         F[i,j] += 2.0*P[k,l]*ijkl
@@ -291,43 +338,6 @@ def runRHF(atoms , init=None , N_occ=-1, maxiter=50 , opttol=1.0e-5):
    return (energy,C,False,end_time-start_time)
 
 
-"""
-g94フォーマットの基底関数データを読み込む
-
-
-基底関数セットは、例えば
-EMSL Basis Set Exchange
-https://bse.pnl.gov/bse/portal
-で、様々なフォーマットで配布されている
-"""
-def readBasis_g94(fp):
-    ret = {}
-    atoms = [None , "H","He","Li","Be","B","C","N","O","F","Ne","Na","Mg","Al","Si","P","S","Cl","Ar","K","Ca","Sc","Ti"]
-    lines = [line for line in fp if line[0]!='!' and len(line.strip())>0][1:]
-    idx = 0
-    while True:
-        if idx==len(lines):break
-        atomname = lines[idx].split()[0]
-        assert(atomname in atoms),"未知の原子"
-        atno = atoms.index(atomname)
-        idx += 1
-        ret[atno] = []
-        while True:
-            ls = lines[idx].split()
-            if len(ls)<2:
-               idx+=1
-               break
-            orbtype = list(ls[0])
-            contnum = int(ls[1])
-            for c,orb in enumerate( orbtype ):
-               ndata = []
-               for i in xrange(contnum):
-                  ls = lines[idx+i+1].split()
-                  ndata.append( (float(ls[0]) , float(ls[c+1])) )
-               ret[atno].append( (orb , ndata) )
-            idx+=(contnum+1)
-    return ret
-
 
 """
 各原子核の原子番号と座標情報と基底関数セットから、Atomsクラスを構築する
@@ -339,41 +349,43 @@ def Molecule(nucleus , basisSet):
    atoms.nucleus = deepcopy(nucleus)
    Lname = ["S" , "P" , "D" , "F"]
    for (atno , ax , ay , az) in nucleus:
-       assert(basisSet.has_key(atno)) , ("基底関数セットに必要な情報が含まれていない(%d)" % atno)
-       for (orbtype , params) in basisSet[atno]:
+       assert(basisSet.has_key(str(atno))) , ("基底関数セットに必要な情報が含まれていない(%d)" % atno)
+       for (orbtype , params) in basisSet[str(atno)]:
            assert(orbtype in Lname) , ("未知の軌道(%s)" % orbtype)
            Lidx = Lname.index(orbtype)  #-- 主量子数-1
            for nx in xrange(Lidx+1):
                for ny in xrange(Lidx+1):
                    for nz in xrange(Lidx+1):
                         if nx+ny+nz!=Lidx:continue
-                        MO = []
+                        MO = GaussBasis(nx,ny,nz,ax,ay,az)
                         for (exponent,coeff) in params:
-                            pb = PrimitiveBasis()
-                            pb.nx , pb.ny , pb.nz = nx,ny,nz
-                            pb.x0 , pb.y0 , pb.z0 = ax,ay,az
-                            pb.alpha = exponent
+                            MO.exponents.append( exponent )
                             norm2 = pow(2*exponent/M_PI,1.5)*pow(2,2*(nx+ny+nz))*pow(exponent,nx+ny+nz)/(fact2(2*nx-1)*fact2(2*ny-1)*fact2(2*nz-1))
-                            pb.norm = sqrt(norm2)*coeff
-                            MO.append(pb)
+                            MO.norms.append( sqrt(norm2)*coeff )
                         atoms.basis.append( MO )
    return atoms
 
 
-
+import json
+from util import *
 if __name__=="__main__":
    def angstrom2bohr(r):
       return (r)*1.8897261249935898
-   basisSet = readBasis_g94(open('631g.g94'))
+   basisSet = json.load(open('basis/631g.js'))
    H2 = Molecule([(1 , 0.0 , 0.0 , 0.0) , (1 , angstrom2bohr(0.74114) , 0.0 , 0.0)] , basisSet)
    E,C,check,t = runRHF(H2)
    assert(check),"SCF計算が収束していない"
-   print("水素分子のエネルギー: %2.5f(hartree) SCF計算時間:%2.2f(s)" % (E,t))
-   basisSet = readBasis_g94(open('sto3g.g94'))
+   print("水素分子のHFエネルギー: %2.5f(hartree) SCF計算時間:%2.2f(s)" % (E,t))
+   #--
+   basisSet = json.load(open('basis/631g.js'))
    H2O_nm = [ (8 , -0.332 , 0.440 , -0.016) , (1 , 0.596 , 0.456 , 0.228) , (1,-0.596 , -0.456 , -0.228) ]
    H2O = Molecule([ (n,angstrom2bohr(x),angstrom2bohr(y),angstrom2bohr(z)) for (n,x,y,z) in H2O_nm ] , basisSet)
    E,C,check,t = runRHF(H2O)
    assert(check),"SCF計算が収束していない"
-   print("H2O分子のエネルギー: %2.5f(hartree) SCF計算時間:%2.2f(s)" % (E,t))
-
-
+   print("H2O分子のHFエネルギー: %2.5f(hartree) SCF計算時間:%2.2f(s)" % (E,t))
+   #--
+   basisSet = json.load(open('basis/sto3g.js'))
+   CH4 = Molecule(readpdb('pdb/methane.pdb') , basisSet)
+   E,C,check,t = runRHF(CH4)
+   assert(check),"SCF計算が収束していない"
+   print("メタンのHFエネルギー: %2.5f(hartree) SCF計算時間:%2.2f(s)" % (E,t))
