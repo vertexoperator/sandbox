@@ -1,5 +1,6 @@
 #include "crys.h"
 #include <math.h>
+#include <omp.h>
 
 #ifndef M_PI
 #define M_PI 3.1415926535897932384626433
@@ -18,9 +19,9 @@ typedef struct {
     double x;
     double y;
     double z;
+    long length;
     double *norms;
     double *exponents;
-    long length;
 } GaussBasis;
 
 double Fm(int m, double X);
@@ -31,11 +32,19 @@ double computeERI(
     double xc,double yc,double zc,int lc,int mc,int nc,double *alphac , double *cnorm , int Lc ,
     double xd,double yd,double zd,int ld,int md,int nd,double *alphad , double *dnorm , int Ld);
 
+double computeeri_(
+    double *xa,double *ya,double *za,long *la,long *ma,long *na,double *alphaa , double *anorm , long *La ,
+    double *xb,double *yb,double *zb,long *lb,long *mb,long *nb,double *alphab , double *bnorm , long *Lb ,
+    double *xc,double *yc,double *zc,long *lc,long *mc,long *nc,double *alphac , double *cnorm , long *Lc ,
+    double *xd,double *yd,double *zd,long *ld,long *md,long *nd,double *alphad , double *dnorm , long *Ld);
+
+
 void computeFockMatrix(GaussBasis *basis , int Nbasis , double *P , double *F);
 
 #ifdef __cplusplus
 }
 #endif
+
 
 static inline int binomial(int n , int k){
         int p=1;
@@ -193,6 +202,18 @@ double computeERI(
 }
 
 
+double computeeri_(double *xa,double *ya,double *za,long *la,long *ma,long *na,double *alphaa , double *anorm , long *La ,
+    double *xb,double *yb,double *zb,long *lb,long *mb,long *nb,double *alphab , double *bnorm , long *Lb ,
+    double *xc,double *yc,double *zc,long *lc,long *mc,long *nc,double *alphac , double *cnorm , long *Lc ,
+    double *xd,double *yd,double *zd,long *ld,long *md,long *nd,double *alphad , double *dnorm , long *Ld)
+{
+     return computeERI(*xa,*ya,*za,*la,*ma,*na,alphaa,anorm,*La,
+                       *xb,*yb,*zb,*lb,*mb,*nb,alphab,bnorm,*Lb,
+                       *xc,*yc,*zc,*lc,*mc,*nc,alphac,cnorm,*Lc,
+                       *xd,*yd,*zd,*ld,*md,*nd,alphad,dnorm,*Ld);
+}
+
+
 /*
 basis:縮約Gauss基底の配列
 Nbasis:基底の個数
@@ -200,22 +221,23 @@ P:密度行列
 F:Fock行列(返り値)
 */
 void computeFockMatrix(GaussBasis *basis , int Nbasis , double *P , double *F){
-  int i,j,k,l;
+  int i,j,k,l=0;
   double ijkl;
   GaussBasis a,b,c,d;
 
   for(i = 0 ; i < Nbasis ; i++){
-     a = basis[i];
      for(j = i ; j < Nbasis ; j++){
-        b = basis[j];
         for(k = 0 ; k < Nbasis ; k++){
-           c = basis[k];
            for(l = k ; l < Nbasis ; l++){
+                a = basis[i];
+                b = basis[j];
+                c = basis[k];
                 d = basis[l];
                 ijkl = computeERI(a.x , a.y , a.z , a.nx , a.ny , a.nz , a.exponents , a.norms , a.length ,
                                   b.x , b.y , b.z , b.nx , b.ny , b.nz , b.exponents , b.norms , b.length ,
                                   c.x , c.y , c.z , c.nx , c.ny , c.nz , c.exponents , c.norms , c.length ,
                                   d.x , d.y , d.z , d.nx , d.ny , d.nz , d.exponents , d.norms , d.length );
+
             /*
                 F[i,j] += 2.0*P[k,l]*(ij|kl)
                 F[i,l] += -P[k,j]*(ij|kl)
@@ -240,9 +262,12 @@ void computeFockMatrix(GaussBasis *basis , int Nbasis , double *P , double *F){
                    F[i+j*Nbasis] += 2.0*P[l+k*Nbasis]*ijkl;
                    F[i+k*Nbasis] += -P[l+j*Nbasis]*ijkl;
                 }
+
            }
         }
      }
   }
   return ;
 }
+
+

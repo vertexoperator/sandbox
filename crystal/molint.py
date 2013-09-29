@@ -1,4 +1,5 @@
 #-*- coding:utf-8 -*-
+
 import numpy as np
 from numpy import exp,sqrt
 from numpy.linalg import eigh,cholesky,inv
@@ -13,6 +14,8 @@ libhf = ctypes.cdll.LoadLibrary("libhf.so")
 __computeERI__ = libhf.computeERI
 __computeERI__.restype = c_double
 computeFockMatrix = libhf.computeFockMatrix
+computeFockMatrix_ = libhf.computefock_
+computeFockMatrix_.restype = c_double
 
 Fm = libhf.Fm
 Fm.restype = c_double
@@ -52,9 +55,9 @@ class CGaussBasis(ctypes.Structure):
                  ("x" , c_double),
                  ("y" , c_double),
                  ("z" , c_double),
+                 ("length" , c_long),
                  ("norms" , ctypes.POINTER(c_double)),
-                 ("exponents" , ctypes.POINTER(c_double)),
-                 ("length" , c_long)]
+                 ("exponents" , ctypes.POINTER(c_double))]
 
 
 """
@@ -101,9 +104,9 @@ class GaussBasis:
                             x=c_double(self.x) , 
                             y=c_double(self.y) , 
                             z=c_double(self.z) , 
+                            length=c_long(len(self.norms)) ,
                             norms=ctypes.cast(_norms , ctypes.POINTER(c_double)),
-                            exponents=ctypes.cast(_exponents , ctypes.POINTER(c_double)),
-                            length=len(self.norms) )
+                            exponents=ctypes.cast(_exponents , ctypes.POINTER(c_double)))
       return rawdata
 
 
@@ -223,7 +226,7 @@ http://rscweb.anu.edu.au/~pgill/papers/026PRISM.pdf
 A Tensor Approach to Two-Electron Matrix Elements
 http://rsc.anu.edu.au/~pgill/papers/061COLD.pdf
 """
-def computeERI(a , b ,  c ,  d):
+def computeERI(a , b ,  c , d):
    t = __computeERI__(
        c_double(a.x) ,c_double(a.y), c_double(a.z),
        a.nx,a.ny,a.nz,
@@ -251,6 +254,7 @@ def computeERI(a , b ,  c ,  d):
 
 #-- RHF calculation
 def runRHF(atoms , init=None , N_occ=-1, maxiter=50 , opttol=1.0e-5):
+   totaltime = 0.0
    Nbasis = len(atoms.basis)
    S , P , H = np.matrix(np.zeros((Nbasis,Nbasis))) , np.matrix(np.zeros((Nbasis,Nbasis))) , np.matrix(np.zeros((Nbasis,Nbasis))) 
    energy , old_energy = 0.0 , 0.0
@@ -293,13 +297,16 @@ def runRHF(atoms , init=None , N_occ=-1, maxiter=50 , opttol=1.0e-5):
                P[p,q] += init[p,k]*init[q,k]
    #-- main loop
    F = np.matrix(np.zeros((Nbasis,Nbasis)))
-   start_time = time.clock()
    for it in xrange(maxiter):
         np.copyto(F , H)
-        computeFockMatrix(cbasis , 
-                          Nbasis , 
-                          P.ctypes.data_as(ctypes.POINTER(c_double)) , 
-                          F.ctypes.data_as(ctypes.POINTER(c_double)))
+        t0 = computeFockMatrix_(cbasis , ctypes.byref(ctypes.c_int(Nbasis)) ,
+                                P.ctypes.data_as(ctypes.POINTER(c_double)) ,
+                                F.ctypes.data_as(ctypes.POINTER(c_double)))
+        totaltime += t0
+#        computeFockMatrix(cbasis , 
+#                          Nbasis , 
+#                          P.ctypes.data_as(ctypes.POINTER(c_double)) , 
+#                          F.ctypes.data_as(ctypes.POINTER(c_double)))
         Es,C = geneig(F , S)
         for p in xrange(Nbasis):
            for q in xrange(Nbasis):
@@ -309,10 +316,96 @@ def runRHF(atoms , init=None , N_occ=-1, maxiter=50 , opttol=1.0e-5):
         old_energy = energy
         energy = En + Es[:N_occ].sum() + np.trace(P*H.T)
         if it>0 and abs(old_energy - energy)<opttol:
-            end_time = time.clock()
-            return (energy,C,True,end_time-start_time)
-   end_time = time.clock()
-   return (energy,C,False,end_time-start_time)
+            return (energy,C,True,totaltime)
+   return (energy,C,False,totaltime)
+
+
+
+"""
+UHF Calculation
+charge:電荷
+multiplicity:スピン多重度
+
+A mathematical and computational review of Hartree-Fock SCF methods in Quantum Chemistry
+http://arxiv.org/abs/0705.0337
+"""
+def runUHF(atoms , init=None , multiplicity=1 , charge= 0 , maxiter=50 , opttol=1.0e-5):
+   Nbasis = len(atoms.basis)
+   S , H = np.matrix(np.zeros((Nbasis,Nbasis))) , np.matrix(np.zeros((Nbasis,Nbasis)))
+   Pa , Pb = np.matrix(np.zeros((Nbasis,Nbasis))) , np.matrix(np.zeros((Nbasis,Nbasis)))
+   energy , old_energy = 0.0 , 0.0
+   mix = 0.0   #-- 今は意味がない
+   cbasis = (CGaussBasis * Nbasis)()
+   for (n,b) in enumerate(atoms.basis):
+       cbasis[n] = b.ctype()
+   cbasis = ctypes.cast(cbasis , ctypes.POINTER(CGaussBasis))
+   #-- initialization
+   N_elec = sum([n for (n,_,_,_) in atoms.nucleus])+charge  #-- number of electros
+   N_open = multiplicity - 1
+   N_close = (N_elec - N_open)/2
+   Na,Nb = N_close+N_open , N_close   #-- number of alpha/beta electrons
+   for i,v in enumerate(atoms.basis):
+      for j,w in enumerate(atoms.basis):
+          sval = 0.0
+          kinval = 0.0
+          naival = 0.0
+          for pf in v:
+              for qf in w:
+                  sval += overlap(pf , qf)
+                  kinval += kinetic(pf , qf)
+                  for (AN,Ax,Ay,Az) in atoms.nucleus:
+                      naival += computeNAI(pf , qf , AN  , Ax , Ay , Az)
+          S[i,j] = sval
+          H[i,j] = kinval + naival
+   En = 0.0
+   for c1,(n1,x1,y1,z1) in enumerate(atoms.nucleus):
+       for c2,(n2,x2,y2,z2) in enumerate(atoms.nucleus):
+           if c1<=c2:continue
+           En += n1*n2/sqrt((x1-x2)**2+(y1-y2)**2+(z1-z2)**2)
+   if init is None:
+      #-- Huckel近似による初期状態
+      _,C = geneig(H,S)
+      for p in xrange(Nbasis):
+         for q in xrange(Nbasis):
+            for k in xrange(Na):
+               Pa[p,q] += C[p,k]*C[q,k]
+            for k in xrange(Nb):
+               Pb[p,q] += C[p,k]*C[q,k]
+   else:
+      for p in xrange(Nbasis):
+         for q in xrange(Nbasis):
+            for k in xrange(Na):
+               Pa[p,q] += init[p,k]*init[q,k]
+            for k in xrange(Nb):
+               Pb[p,q] += init[p,q]*init[q,k]
+   #-- main loop
+   Fa,Fb = np.matrix(np.zeros((Nbasis,Nbasis))),np.matrix(np.zeros((Nbasis,Nbasis)))
+   for it in xrange(maxiter):
+       np.copyto(Fa,H)
+       np.copyto(Fb,H)
+       t0 = computeFockMatrix_(cbasis , ctypes.byref(ctypes.c_int(Nbasis)) ,
+                                Pa.ctypes.data_as(ctypes.POINTER(c_double)) ,
+                                Fa.ctypes.data_as(ctypes.POINTER(c_double)))
+       t1 = computeFockMatrix_(cbasis , ctypes.byref(ctypes.c_int(Nbasis)) ,
+                                Pb.ctypes.data_as(ctypes.POINTER(c_double)) ,
+                                Fb.ctypes.data_as(ctypes.POINTER(c_double)))
+       totaltime += (t0+t1)
+       Ea,Ca = geneig(Fa , S)
+       Eb,Cb = geneig(Fb , S)
+       for p in xrange(Nbasis):
+          for q in xrange(Nbasis):
+              Pa[p,q] *= mix
+              Pb[p,q] *= mix
+              for k in xrange(Na):
+                  Pa[p,q] += (1.0-mix)*C[p,k]*C[q,k]
+              for k in xrange(Nb)
+                  Pb[p,q] += (1.0-mix)*C[p,k]*C[q,k]
+       old_energy = energy
+       energy = En + 0.5*(Ea[:Na].sum() + Eb[:Nb].sum() + np.trace((Pa+Pb)*H.T))
+       if it>0 and abs(old_energy - energy)<opttol:
+            return (energy,(Ca,Cb),True,totaltime)
+   return (energy,(Ca,Cb),False,totaltime)
+
 
 
 
@@ -352,17 +445,17 @@ if __name__=="__main__":
    H2 = Molecule([(1 , 0.0 , 0.0 , 0.0) , (1 , angstrom2bohr(0.74114) , 0.0 , 0.0)] , basisSet)
    E,C,check,t = runRHF(H2)
    assert(check),"SCF計算が収束していない"
-   print("水素分子のHFエネルギー: %2.5f(hartree) SCF計算時間:%2.2f(s)" % (E,t))
+   print("水素分子のHFエネルギー(631-G**): %2.5f(hartree) ERI計算時間:%2.2f(s)" % (E,t))
    #--
    basisSet = json.load(open('basis/631g.js'))
    H2O_nm = [ (8 , -0.332 , 0.440 , -0.016) , (1 , 0.596 , 0.456 , 0.228) , (1,-0.596 , -0.456 , -0.228) ]
    H2O = Molecule([ (n,angstrom2bohr(x),angstrom2bohr(y),angstrom2bohr(z)) for (n,x,y,z) in H2O_nm ] , basisSet)
    E,C,check,t = runRHF(H2O)
    assert(check),"SCF計算が収束していない"
-   print("H2O分子のHFエネルギー: %2.5f(hartree) SCF計算時間:%2.2f(s)" % (E,t))
+   print("H2O分子のHFエネルギー(631-G): %2.5f(hartree) ERI計算時間:%2.2f(s)" % (E,t))
    #--
-   basisSet = json.load(open('basis/sto3g.js'))
+   basisSet = json.load(open('basis/631g.js'))
    CH4 = Molecule(readpdb('pdb/methane.pdb') , basisSet)
    E,C,check,t = runRHF(CH4)
    assert(check),"SCF計算が収束していない"
-   print("メタンのHFエネルギー: %2.5f(hartree) SCF計算時間:%2.2f(s)" % (E,t))
+   print("メタンのHFエネルギー(631-G): %2.5f(hartree) ERI計算時間:%2.2f(s)" % (E,t))
