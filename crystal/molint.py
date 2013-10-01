@@ -7,6 +7,8 @@ import ctypes
 from ctypes import c_double,c_long
 from copy import deepcopy
 import time
+import os
+
 M_PI = np.pi
 
 
@@ -253,7 +255,7 @@ def computeERI(a , b ,  c , d):
 
 
 #-- RHF calculation
-def runRHF(atoms , init=None , N_occ=-1, maxiter=50 , opttol=1.0e-5):
+def runRHF(atoms , init=None , N_occ=-1, maxiter=50 , opttol=1.0e-5 , Nthread=-1):
    totaltime = 0.0
    Nbasis = len(atoms.basis)
    S , P , H = np.matrix(np.zeros((Nbasis,Nbasis))) , np.matrix(np.zeros((Nbasis,Nbasis))) , np.matrix(np.zeros((Nbasis,Nbasis))) 
@@ -264,6 +266,7 @@ def runRHF(atoms , init=None , N_occ=-1, maxiter=50 , opttol=1.0e-5):
        cbasis[n] = b.ctype()
    cbasis = ctypes.cast(cbasis , ctypes.POINTER(CGaussBasis))
    #-- initialization
+   if Nthread==-1:Nthread=int( os.environ.get('OMP_NUM_THREADS',1) )
    if N_occ==-1:N_occ = sum([n for (n,_,_,_) in atoms.nucleus])/2
    for i,v in enumerate(atoms.basis):
       for j,w in enumerate(atoms.basis):
@@ -301,7 +304,8 @@ def runRHF(atoms , init=None , N_occ=-1, maxiter=50 , opttol=1.0e-5):
         np.copyto(F , H)
         t0 = computeFockMatrix_(cbasis , ctypes.byref(ctypes.c_int(Nbasis)) ,
                                 P.ctypes.data_as(ctypes.POINTER(c_double)) ,
-                                F.ctypes.data_as(ctypes.POINTER(c_double)))
+                                F.ctypes.data_as(ctypes.POINTER(c_double)),
+                                ctypes.byref(ctypes.c_int(Nthread)))
         totaltime += t0
 #        computeFockMatrix(cbasis , 
 #                          Nbasis , 
@@ -329,7 +333,7 @@ multiplicity:スピン多重度
 A mathematical and computational review of Hartree-Fock SCF methods in Quantum Chemistry
 http://arxiv.org/abs/0705.0337
 """
-def runUHF(atoms , init=None , multiplicity=1 , charge= 0 , maxiter=50 , opttol=1.0e-5):
+def runUHF(atoms , init=None , multiplicity=1 , charge= 0 , maxiter=50 , opttol=1.0e-5 , Nthread=-1):
    Nbasis = len(atoms.basis)
    S , H = np.matrix(np.zeros((Nbasis,Nbasis))) , np.matrix(np.zeros((Nbasis,Nbasis)))
    Pa , Pb = np.matrix(np.zeros((Nbasis,Nbasis))) , np.matrix(np.zeros((Nbasis,Nbasis)))
@@ -340,6 +344,7 @@ def runUHF(atoms , init=None , multiplicity=1 , charge= 0 , maxiter=50 , opttol=
        cbasis[n] = b.ctype()
    cbasis = ctypes.cast(cbasis , ctypes.POINTER(CGaussBasis))
    #-- initialization
+   if Nthread==-1:Nthread=int( os.environ.get('OMP_NUM_THREADS',1) )
    N_elec = sum([n for (n,_,_,_) in atoms.nucleus])+charge  #-- number of electros
    N_open = multiplicity - 1
    N_close = (N_elec - N_open)/2
@@ -385,10 +390,12 @@ def runUHF(atoms , init=None , multiplicity=1 , charge= 0 , maxiter=50 , opttol=
        np.copyto(Fb,H)
        t0 = computeFockMatrix_(cbasis , ctypes.byref(ctypes.c_int(Nbasis)) ,
                                 Pa.ctypes.data_as(ctypes.POINTER(c_double)) ,
-                                Fa.ctypes.data_as(ctypes.POINTER(c_double)))
+                                Fa.ctypes.data_as(ctypes.POINTER(c_double)) ,
+                                ctypes.byref(ctypes.c_int(Nthread)))
        t1 = computeFockMatrix_(cbasis , ctypes.byref(ctypes.c_int(Nbasis)) ,
                                 Pb.ctypes.data_as(ctypes.POINTER(c_double)) ,
-                                Fb.ctypes.data_as(ctypes.POINTER(c_double)))
+                                Fb.ctypes.data_as(ctypes.POINTER(c_double)),
+                                ctypes.byref(ctypes.c_int(Nthread)))
        totaltime += (t0+t1)
        Ea,Ca = geneig(Fa , S)
        Eb,Cb = geneig(Fb , S)
@@ -398,7 +405,7 @@ def runUHF(atoms , init=None , multiplicity=1 , charge= 0 , maxiter=50 , opttol=
               Pb[p,q] *= mix
               for k in xrange(Na):
                   Pa[p,q] += (1.0-mix)*C[p,k]*C[q,k]
-              for k in xrange(Nb)
+              for k in xrange(Nb):
                   Pb[p,q] += (1.0-mix)*C[p,k]*C[q,k]
        old_energy = energy
        energy = En + 0.5*(Ea[:Na].sum() + Eb[:Nb].sum() + np.trace((Pa+Pb)*H.T))
@@ -456,6 +463,6 @@ if __name__=="__main__":
    #--
    basisSet = json.load(open('basis/631g.js'))
    CH4 = Molecule(readpdb('pdb/methane.pdb') , basisSet)
-   E,C,check,t = runRHF(CH4)
+   E,C,check,t = runRHF(CH4,Nthread=len(CH4.basis)) #--OpenMPスレッド数はコア数でなく基底数に合わせる
    assert(check),"SCF計算が収束していない"
    print("メタンのHFエネルギー(631-G): %2.5f(hartree) ERI計算時間:%2.2f(s)" % (E,t))
