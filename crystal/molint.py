@@ -12,14 +12,16 @@ import os
 M_PI = np.pi
 
 
-libhf = ctypes.cdll.LoadLibrary("libhf.so")
-__computeERI__ = libhf.computeERI
+libscf = ctypes.cdll.LoadLibrary("libscf.so")
+__computeERI__ = libscf.computeERI
 __computeERI__.restype = c_double
-computeFockMatrix = libhf.computeFockMatrix
-computeFockMatrix_ = libhf.computefock_
+
+computeFockMatrix = libscf.computeFockMatrix
+
+computeFockMatrix_ = libscf.computefock_
 computeFockMatrix_.restype = c_double
 
-Fm = libhf.Fm
+Fm = libscf.Fm
 Fm.restype = c_double
 
 
@@ -73,6 +75,7 @@ each contracted gauss-type basis:
 class GaussBasis:
    __slots__ = ['nx','ny','nz','x','y','z']
    def __init__(self , _nx,_ny,_nz,_x,_y,_z):
+      self.shell = 0   
       self.nx = _nx
       self.ny = _ny
       self.nz = _nz
@@ -318,8 +321,15 @@ def runRHF(atoms , init=None , N_occ=-1, maxiter=50 , opttol=1.0e-5 , Nthread=-1
                for k in xrange(N_occ):
                    P[p,q] += (1.0-mix)*C[p,k]*C[q,k]
         old_energy = energy
-        energy = En + Es[:N_occ].sum() + np.trace(P*H.T)
+        energy = En + Es[:N_occ].sum() + np.trace(P*H)
         if it>0 and abs(old_energy - energy)<opttol:
+            """
+            print "total enegy:",energy
+            print "nuclear-nuclear energy:",En
+            print "electron energy:",np.trace(P*(H+F))
+            print "1-electron energy:",2*np.trace(P*H)
+            print "2-electron energy:",np.trace(P*F)-np.trace(P*H)
+            """
             return (energy,C,True,totaltime)
    return (energy,C,False,totaltime)
 
@@ -425,21 +435,30 @@ def Molecule(nucleus , basisSet):
    atoms = Atoms()
    atoms.nucleus = deepcopy(nucleus)
    Lname = ["S" , "P" , "D" , "F"]
+   shell_start = 0
    for (atno , ax , ay , az) in nucleus:
        assert(basisSet.has_key(str(atno))) , ("基底関数セットに必要な情報が含まれていない(%d)" % atno)
-       for (orbtype , params) in basisSet[str(atno)]:
-           assert(orbtype in Lname) , ("未知の軌道(%s)" % orbtype)
-           Lidx = Lname.index(orbtype)  #-- 主量子数-1
-           for nx in xrange(Lidx+1):
-               for ny in xrange(Lidx+1):
-                   for nz in xrange(Lidx+1):
-                        if nx+ny+nz!=Lidx:continue
-                        MO = GaussBasis(nx,ny,nz,ax,ay,az)
-                        for (exponent,coeff) in params:
-                            MO.exponents.append( exponent )
-                            norm2 = pow(2*exponent/M_PI,1.5)*pow(2,2*(nx+ny+nz))*pow(exponent,nx+ny+nz)/(fact2(2*nx-1)*fact2(2*ny-1)*fact2(2*nz-1))
-                            MO.norms.append( sqrt(norm2)*coeff )
-                        atoms.basis.append( MO )
+       for (group_id,tmp) in enumerate(basisSet[str(atno)]):
+          params = {}
+          for (exponent,norms) in tmp:
+               for (orbtype , coeff) in norms:
+                   assert(orbtype in Lname) , ("未知の軌道(%s)" % orbtype)
+                   Lidx = Lname.index(orbtype) #-- 主量子数-1
+                   for nx in xrange(Lidx+1):
+                       for ny in xrange(Lidx+1):
+                            for nz in xrange(Lidx+1):
+                                 if nx+ny+nz!=Lidx:continue
+                                 if params.get((nx,ny,nz) , None) is None:
+                                    params[nx,ny,nz] = GaussBasis(nx,ny,nz,ax,ay,az)
+                                 params[nx,ny,nz].exponents.append(exponent)
+                                 norm2 = pow(2*exponent/M_PI,1.5)*pow(2,2*(nx+ny+nz))*pow(exponent,nx+ny+nz)/(fact2(2*nx-1)*fact2(2*ny-1)*fact2(2*nz-1))
+                                 params[nx,ny,nz].norms.append( sqrt(norm2)*coeff)
+          its = params.items()
+          its.sort(key=lambda ((nx,ny,nz),_):nx+ny+nz)
+          for (_,v) in its:
+               v.shell = shell_start + group_id
+               atoms.basis.append( v )
+       shell_start += (group_id+1)
    return atoms
 
 
@@ -451,18 +470,24 @@ if __name__=="__main__":
    basisSet = json.load(open('basis/631gss.js'))
    H2 = Molecule([(1 , 0.0 , 0.0 , 0.0) , (1 , angstrom2bohr(0.74114) , 0.0 , 0.0)] , basisSet)
    E,C,check,t = runRHF(H2)
-   assert(check),"SCF計算が収束していない"
-   print("水素分子のHFエネルギー(631-G**): %2.5f(hartree) ERI計算時間:%2.2f(s)" % (E,t))
+   assert(check),"SCF計算が収束していない@H2"
+   print("水素分子のRHFエネルギー(631-G**): %2.5f(hartree) ERI計算時間:%2.2f(s)" % (E,t))
    #--
-   basisSet = json.load(open('basis/631g.js'))
+   basisSet = json.load(open('basis/631gss.js'))
    H2O_nm = [ (8 , -0.332 , 0.440 , -0.016) , (1 , 0.596 , 0.456 , 0.228) , (1,-0.596 , -0.456 , -0.228) ]
    H2O = Molecule([ (n,angstrom2bohr(x),angstrom2bohr(y),angstrom2bohr(z)) for (n,x,y,z) in H2O_nm ] , basisSet)
    E,C,check,t = runRHF(H2O)
-   assert(check),"SCF計算が収束していない"
-   print("H2O分子のHFエネルギー(631-G): %2.5f(hartree) ERI計算時間:%2.2f(s)" % (E,t))
+   assert(check),"SCF計算が収束していない@H2O"
+   print("H2O分子のRHFエネルギー(631-G**): %2.5f(hartree) ERI計算時間:%2.2f(s)" % (E,t))
    #--
    basisSet = json.load(open('basis/631g.js'))
    CH4 = Molecule(readpdb('pdb/methane.pdb') , basisSet)
    E,C,check,t = runRHF(CH4,Nthread=len(CH4.basis)) #--OpenMPスレッド数はコア数でなく基底数に合わせる
-   assert(check),"SCF計算が収束していない"
-   print("メタンのHFエネルギー(631-G): %2.5f(hartree) ERI計算時間:%2.2f(s)" % (E,t))
+   assert(check),"SCF計算が収束していない@CH4"
+   print("メタンのRHFエネルギー(631-G): %2.5f(hartree) ERI計算時間:%2.2f(s)" % (E,t))
+   #--
+   basisSet = json.load(open('basis/sto3g.js'))
+   C6H6 = Molecule(readpdb('pdb/benzene.pdb') , basisSet)
+   E,C,check,t = runRHF(C6H6)
+   assert(check),"SCF計算が収束していない@C6H6"
+   print("ベンゼンのRHFエネルギー(STO-3G): %2.5f(hartree) ERI計算時間:%2.2f(s)" % (E,t))

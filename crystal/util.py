@@ -13,7 +13,8 @@ def readBasis_g94(fp):
         return float(s.replace('D' , 'e'))
     ret = {}
     atoms = [None , "H","He","Li","Be","B","C","N","O","F","Ne","Na","Mg","Al","Si","P","S","Cl","Ar",
-             "K","Ca","Sc","Ti","V","Cr","Mn","Fe","Co","Ni","Cu","Zn","Ga","Ge","As","Se","Br","Kr"]
+             "K","Ca","Sc","Ti","V","Cr","Mn","Fe","Co","Ni","Cu","Zn","Ga","Ge","As","Se","Br","Kr",
+             "Rb","Sr","Y","Zr","Nb","Mo","Tc","Ru","Rh","Pd"]
     lines = [line for line in fp if line[0]!='!' and len(line.strip())>0][1:]
     idx = 0
     while True:
@@ -30,12 +31,13 @@ def readBasis_g94(fp):
                break
             orbtype = list(ls[0])
             contnum = int(ls[1])
-            for c,orb in enumerate( orbtype ):
-               ndata = []
-               for i in xrange(contnum):
-                  ls = lines[idx+i+1].split()
-                  ndata.append( (float_g94(ls[0]) , float_g94(ls[c+1])) )
-               ret[str(atno)].append( (orb , ndata) )
+            tmp = []
+            for i in xrange(contnum):
+               ls = lines[idx+i+1].split()
+               norms = [(t,float_g94(v)) for (t,v) in zip(orbtype , ls[1:])]
+               exponent = float_g94(ls[0])
+               tmp.append( (exponent , norms) )
+            ret[str(atno)].append( tmp )
             idx+=(contnum+1)
     return ret
 
@@ -45,6 +47,13 @@ def readBasis_g94(fp):
 pdbファイルから原子の座標データを読む
 """
 def readpdb(filename):
+   def aux(s):
+        pos=len(s)
+        for n in xrange(1,10):
+            _pos = s.find(str(n))
+            if _pos<0:continue
+            pos = min(pos,_pos)
+        return s[:pos]
    atoms = [None , "H","He","Li","Be","B","C","N","O","F","Ne",
             "Na","Mg","Al","Si","P","S","Cl","Ar",
             "K","Ca","Sc","Ti","V","Cr","Mn","Fe","Co","Ni","Cu","Zn",
@@ -56,7 +65,8 @@ def readpdb(filename):
       ls = line.strip().split()
       if len(ls)<7:continue
       if ls[0]!="ATOM":continue
-      ret.append( (atoms.index(ls[2]) , angstrom2bohr(ls[4]) , angstrom2bohr(ls[5]) , angstrom2bohr(ls[6])) )
+      assert(len(ls)>8 and len(ls)<11),("@pdb:%s %d個のカラム" % (filename,len(ls)))
+      ret.append( (atoms.index(aux(ls[2])) , angstrom2bohr(ls[-5]) , angstrom2bohr(ls[-4]) , angstrom2bohr(ls[-3])) )
    return ret
 
 
