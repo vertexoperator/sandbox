@@ -1,6 +1,7 @@
-#include "crys.h"
+#include "rysquad.h"
 #include <math.h>
 #include <omp.h>
+#include "gammainc.hpp"
 
 #ifndef M_PI
 #define M_PI 3.1415926535897932384626433
@@ -53,9 +54,14 @@ static inline int binomial(int n , int k){
         return p;
 }
 
+
 //molecular incomplete gamma function or boys function
 //F_m(x) = \int_{0}^{1} t^{2*m} exp^{-x*t^2}dt
 double Fm(int m, double X){
+
+  double x = fmax(fabs(X),1.0e-10);
+  return 0.5*tgamma(m+0.5)*pow(x,-m-0.5)*gammap(m+0.5 , x);
+#if 0
   double roots[MAXROOTS],weights[MAXROOTS];
 
   computeRysParams(m+1 , X , roots, weights);
@@ -65,8 +71,10 @@ double Fm(int m, double X){
 	double t = roots[i]/(1+roots[i]);
 	ret += weights[i] * pow(t,m);
   }
+  double x = fmax(fabs(X),1.0e-10);
+  printf("%d , %lf,%lf\n",m , ret , 0.5*tgamma(m+0.5)*pow(x,-m-0.5)*gammap(m+0.5 , x));
   return ret;
-
+#endif
 }
 
 double computeERI1D(double t,int i,int j,int k, int l,double xi,double xj,double xk,double xl,double ai,double aj,double ak,double al){
